@@ -1,0 +1,51 @@
+﻿@page "/InicioDeSesion"
+@inject SignInManager<Usuario> _SignInManager
+@inject NavigationManager _Navegador
+
+@code {
+    LoginUsuario credenciales = new();
+    MudForm form_login = new();
+
+    private async Task LoginUsuario()
+    {
+        await form_login.ValidateAsync();
+
+        if (form_login.IsValid)
+        {
+            var respuesta = await _SignInManager.PasswordSignInAsync(userName: credenciales.Usuario, password:
+            credenciales.Contraseña, isPersistent:
+            false,
+            lockoutOnFailure: false);
+
+            if (respuesta.Succeeded)
+            {
+                _Navegador.NavigateTo("/");
+            }
+        }
+    }
+}
+<MudStack Justify="Justify.Center" AlignItems="AlignItems.Center" Style="height: 100vh;">
+    <MudGrid Al Justify="Justify.Center" Class="ps-a">
+        <MudItem xs="10" sm="6" md="5" lg="5">
+            <MudPaper Class="pa-8">
+                <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Class="ma-3 border-solid">
+                    <MudText Typo="Typo.h5">Cyr-Tickets</MudText>
+                    <MudText Typo="Typo.h6">Inicio de Sesion</MudText>
+                </MudStack>
+                <MudSpacer />
+                <MudForm @ref="form_login" Model="@credenciales">
+                    <MudStack Class="pa-5 border-solid border mud-border-primary"
+                        Style="border-color: white !important;">
+                        <MudTextField Label="Usuario" @bind-Value="credenciales.Usuario" Required
+                            Variant="Variant.Outlined">
+                        </MudTextField>
+                        <MudTextField Label="Contraseña" @bind-Value="credenciales.Contraseña" Required
+                            Variant="Variant.Outlined" InputType="InputType.Password"></MudTextField>
+                        <MudButton Size="Size.Large" Color="Color.Info" OnClick="LoginUsuario">Iniciar Sesion
+                        </MudButton>
+                    </MudStack>
+                </MudForm>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+</MudStack>
