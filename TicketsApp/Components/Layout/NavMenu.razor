@@ -1,6 +1,59 @@
-﻿<MudNavMenu>
-    <MudNavLink Href="" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Home">Home</MudNavLink>
-    <MudNavLink Href="" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Token">Tickets
-    </MudNavLink>
-    <MudNavLink Href="Usuarios" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Person">Usuarios</MudNavLink>
-</MudNavMenu>
+﻿@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Components.Authorization
+@inject IJSRuntime _Js
+@inject NavigationManager _Navegador
+
+<MudNavMenu Class="mt-4">
+    <MudStack>
+        <MudButton Href="/Inicio" Match="NavLinkMatch.Prefix" EndIcon="@Icons.Material.Filled.Home"
+                   OnClick="DrawerToggle">
+            Inicio
+        </MudButton>
+        <AuthorizeView Roles="Admin">
+            <Authorized>
+                <MudButton Href="Usuarios" Match="NavLinkMatch.Prefix" EndIcon="@Icons.Material.Filled.Person"
+                           OnClick="DrawerToggle">
+                    Usuarios</MudButton>
+                </Authorized>
+            </AuthorizeView>
+            <MudButton Href="UsuarioTickets" Match="NavLinkMatch.Prefix" EndIcon="@Icons.Material.Filled.EventNote"
+                       OnClick="DrawerToggle">Nuevo Tickets
+            </MudButton>
+
+            <AuthorizeView Roles="Admin, Analista">
+                <Authorized>
+                    <MudButton Href="Tickets" Match="NavLinkMatch.Prefix" EndIcon="@Icons.Material.Filled.LocalActivity"
+                               OnClick="DrawerToggle">Tickets
+                    </MudButton>
+                </Authorized>
+            </AuthorizeView>
+            <MudButton Href="Proveedores" Match="NavLinkMatch.Prefix" EndIcon="@Icons.Material.Filled.ContactEmergency"
+                       OnClick="DrawerToggle">
+                Proveedores
+            </MudButton>
+            <MudButton Href="Unidades" Match="NavLinkMatch.Prefix" EndIcon="@Icons.Material.Filled.Business"
+                       OnClick="DrawerToggle">Unidades</MudButton>
+            <MudButton Href="Categorias" Match="NavLinkMatch.Prefix" EndIcon="@Icons.Material.Filled.Category"
+                       OnClick="DrawerToggle">Categorias
+            </MudButton>
+            <MudButton Href="Departamentos" Match="NavLinkMatch.Prefix" EndIcon="@Icons.Material.Filled.Groups"
+                       OnClick="DrawerToggle">Departamentos
+            </MudButton>
+            <MudButton Onclick="CerrarSesion" EndIcon="@Icons.Material.Filled.ExitToApp" FullWidth="true">Cerrar Sesión
+            </MudButton>
+        </MudStack>
+    </MudNavMenu>
+
+@code {
+    private async Task CerrarSesion()
+    {
+        var respuesta = await _Js.InvokeAsync<bool>("cerrarSesion");
+
+        if (respuesta)
+        {
+            _Navegador.NavigateTo("/InicioDesesion", true);
+        }
+    }
+
+    [Parameter][Required] public EventCallback DrawerToggle { get; set; }
+}

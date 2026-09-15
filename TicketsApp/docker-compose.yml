@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  sqlserver_db:
+    image: https://mcr.microsoft.com/mssql/server:2022-latest
+    container_name: sqlserver_db
+    enviroment: 
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=f3S%k7*Jav8K71bU35D3
+      - MSSQL_PID=Developer
+    ports: 
+      - "1433:1433"
+    volumes: 
+      - sqlserver - data:/var/opt/mssql
+    networks: 
+      - blazor-net
+  blazor-app:
+    build:
+      context: ./TicketsApp
+      dockerfile: DockerFile
+    container_name: blazor_app
+    ports: 
+      - "8080:80"
+    depends_on:
+      - sqlserver_db
+    networks:
+      - blazor-net
+
+volumes:
+  sqlserver-data:
+
+networks:
+  blazor-net:
+    driver: bridge
+

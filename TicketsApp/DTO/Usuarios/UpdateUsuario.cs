@@ -15,4 +15,6 @@ public class UpdateUsuario
     public string Contraseña { get; set; } = null!;
 
     public int FkUnidad { get; set; }
+
+    public int FkDepartamento { get; set; }
 }

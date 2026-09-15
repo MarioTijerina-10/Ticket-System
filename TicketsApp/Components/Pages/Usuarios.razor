@@ -1,23 +1,33 @@
 ﻿@page "/Usuarios"
+@inherits ComponenteBase
+@attribute [Authorize]
 @using System.Threading.Tasks
 @using System.Text.Json
+@using Microsoft.AspNetCore.Authorization
 @using TicketsApp.DTO.CamposEstaticos
 @using TicketsApp.DTO.Usuarios
+@using TicketsApp.DTO.Departamentos
 @using TicketsApp.Services
 @inject ServicioUsuarios _ServicioUsuarios
 @inject ServicioCamposEstaticos _ServicioDatos
+@inject ServicioDepartamentos _ServicioDepartamentos
 @inject IDialogService _ServicioDialogo
+@inject ISnackbar _SnackBar
 
 @code {
     @* VARIABLES DE MODALES USADOS *@
     private MudDialog modal_UsuarioNuevo = null!;
     private MudDialog modal_UsuarioActualizado = null!;
     List<GetUsuario> usuarios = new();
+    List<GetUsuario> usuariosFiltrados = new();
     List<Unidad> unidades = new();
+    List<GetDepartamentos> departamentos = new();
     List<IdentityRole> roles = new();
     CreateUsuario nuevoUsuario = new();
     UpdateUsuario usuarioActualizado = new();
+    FiltroDeUsuarios filtrado = new();
     string usuarioActualizadoId = "";
+    private MudForm _form_editar = null!;
     private MudDataGrid<GetUsuario> dataGrid = null!;
     private DialogOptions dialogOptions = new DialogOptions
     {
@@ -35,15 +45,33 @@
         //DATOS PARA EL FORMULARIO
         roles = await _ServicioDatos.GetRoles();
         unidades = await _ServicioDatos.GetUnidades();
+        departamentos = (await _ServicioDepartamentos.GetAll()).data = departamentos;
 
-        //VALORES DEFAULT PARA USUARIO NUEVO
-        nuevoUsuario.FkUnidad = unidades.FirstOrDefault()!.Id;
+        //VALORES DEFAULT PARA SELECTORES NUEVO
+        if (unidades.Any())
+        {
+            unidadSeleccionada = unidades.First().Id;
+        }
+        else
+        {
+            ExistenUnidades = false;
+        }
+
+        if (departamentos.Any())
+        {
+            departamentoSeleccionado = departamentos.First().Id;
+        }
+        else
+        {
+            ExistenDepartamentos = false;
+        }
     }
 
     private async Task GetUsuarios()
     {
         //LISTA DE USUARIOS
         usuarios = (await _ServicioUsuarios.GetAll()).data!;
+        usuariosFiltrados = usuarios;
         await dataGrid.ReloadServerData();
     }
 
@@ -63,45 +91,100 @@
     private async Task ShowDialogoActualizar(GetUsuario usuario)
     {
         usuarioActualizadoId = usuario.Id;
-        usuarioActualizado.Contraseña = usuario!.Contraseña;
         usuarioActualizado.Correo = usuario!.Correo;
         usuarioActualizado.Rol = usuario.Rol.FirstOrDefault()!;
-        usuarioActualizado.FkUnidad = (int)usuario!.Unidad;
+        departamentoSeleccionado = usuario.FkDepartamento;
+        unidadSeleccionada = usuario.FkUnidad;
         usuarioActualizado.Nombre = usuario!.Nombre;
         usuarioActualizado.Usuario1 = usuario!.Usuario;
+        usuarioActualizado.Contraseña = usuario!.ContraseñaVisible;
 
         await modal_UsuarioActualizado.ShowAsync("Actualizar Usuario", dialogOptions);
     }
 }
 
 @* BOTONES *@
-<MudButton Color="Color.Info" @onclick="ShowDialogoCrear">Añadir
+<MudButton Color="Color.Info" @onclick="ShowDialogoCrear" StartIcon="@Icons.Material.Filled.AddCircle">Añadir
     Usuario</MudButton>
 
-<MudDataGrid T="GetUsuario" Items="usuarios" SortMode="SortMode.Multiple" Filterable="true" @ref="dataGrid">
-    <ToolBarContent>
-        <MudText Typo="Typo.h6">Usuarios Registrados</MudText>
-    </ToolBarContent>
-    <Columns>
-        <PropertyColumn Property="x => x.Usuario"></PropertyColumn>
-        <PropertyColumn Property="x => x.Contraseña"></PropertyColumn>
-        <PropertyColumn Property="x => x.Nombre"></PropertyColumn>
-        <PropertyColumn Property="x => x.Rol.LastOrDefault()"></PropertyColumn>
-        <PropertyColumn Property="x => x.Unidad"></PropertyColumn>
-        <PropertyColumn Property="x => x.Correo"></PropertyColumn>
-        <TemplateColumn>
-            <CellTemplate Context="x">
-                <MudStack Row>
-                    <MudButton Size="@Size.Medium" Color="Color.Warning" OnClick="() => CofirmarEliminacion(x.Item.Id)">
-                        Eliminar</MudButton>
-                    <MudButton Size="@Size.Medium" Color="Color.Info" OnClick="() => ShowDialogoActualizar(x.Item)">
-                        Editar
-                    </MudButton>
-                </MudStack>
-            </CellTemplate>
-        </TemplateColumn>
-    </Columns>
-</MudDataGrid>
+    <MudDataGrid T="GetUsuario" Items="@usuariosFiltrados" SortMode="SortMode.Multiple" Filterable="true" @ref="dataGrid"
+                 FilterMode="@DataGridFilterMode.ColumnFilterMenu">
+        <ToolBarContent>
+            <MudText Typo="Typo.h6">Usuarios Registrados</MudText>
+        </ToolBarContent>
+        <Columns>
+            <PropertyColumn Property="x => x.Usuario" Filterable="false"></PropertyColumn>
+            <TemplateColumn Title="Nombre" Filterable="true" Sortable="true">
+                <CellTemplate Context="x">
+                    @x.Item.Nombre
+                </CellTemplate>
+                <FilterTemplate>
+                    <MudTextField Label="Nombre" Value="@filtrado.Nombre"
+                                  ValueChanged="@(async (string? v) => await AsignarValorFiltro(v, x => filtrado.Nombre = x))"
+                                  Immediate="true" Clearable="true" />
+                </FilterTemplate>
+            </TemplateColumn>
+            <TemplateColumn Title="Rol" Filterable="true" Sortable="true">
+                <CellTemplate Context="x">
+                    @x.Item.Rol.FirstOrDefault()
+                </CellTemplate>
+                <FilterTemplate>
+                    <MudSelect Label="Rol" Value="@filtrado.Rol"
+                               ValueChanged="@(async (string? v) => await AsignarValorFiltro(v, x => filtrado.Rol = x))"
+                               Clearable="true">
+                        @foreach (var x in roles)
+                        {
+                            <MudSelectItem Value="@(x.Name)">@x.Name</MudSelectItem>
+                        }
+                    </MudSelect>
+                </FilterTemplate>
+            </TemplateColumn>
+            <TemplateColumn Title="Departamento" Filterable="true" Sortable="true">
+                <CellTemplate Context="x">
+                    @x.Item.Departamento
+                </CellTemplate>
+                <FilterTemplate>
+                    <MudSelect Label="Departamento" Value="@filtrado.FkDepartamento"
+                               ValueChanged="@(async (int? v) => await AsignarValorFiltro(v, x => @filtrado.FkDepartamento = x))"
+                               Clearable="true">
+                        @foreach (var x in departamentos)
+                        {
+                            <MudSelectItem Value="@((int?)x.Id)">@x.Nombre</MudSelectItem>
+                        }
+                    </MudSelect>
+                </FilterTemplate>
+            </TemplateColumn>
+            <TemplateColumn Title="Unidad" Filterable="true" Sortable="true">
+                <CellTemplate Context="x">
+                    @x.Item.Unidad
+                </CellTemplate>
+                <FilterTemplate>
+                    <MudSelect T="int?" Label="Unidad" Value="@filtrado.FkUnidad"
+                               ValueChanged="@(async (int? v) => await AsignarValorFiltro(v, x => @filtrado.FkUnidad = x))"
+                               Clearable="true">
+                        @foreach (var x in unidades)
+                        {
+                            <MudSelectItem Value="@((int?)x.Id)">@x.Nombre</MudSelectItem>
+                        }
+                    </MudSelect>
+                </FilterTemplate>
+            </TemplateColumn>
+            <PropertyColumn Property="x => x.Correo" Filterable="false"></PropertyColumn>
+            <TemplateColumn>
+                <CellTemplate Context="x">
+                    <MudStack Row>
+                        <MudButton Size="@Size.Medium" Color="Color.Warning" OnClick="() => CofirmarEliminacion(x.Item.Id)"
+                                   EndIcon="@Icons.Material.Filled.DeleteForever">
+                            Eliminar</MudButton>
+                            <MudButton Size="@Size.Medium" Color="Color.Info" OnClick="() => ShowDialogoActualizar(x.Item)"
+                                       EndIcon="@Icons.Material.Filled.Edit">
+                                Editar
+                            </MudButton>
+                        </MudStack>
+                    </CellTemplate>
+                </TemplateColumn>
+            </Columns>
+        </MudDataGrid>
 
 @code {
     //CONFIRMACION PARA ELIMINAR USUARIO
@@ -111,7 +194,8 @@
 
         if (respuesta != null && respuesta == true)
         {
-            await _ServicioUsuarios.DeleteUsuario(id);
+            var resultado = await _ServicioUsuarios.DeleteUsuario(id);
+            _SnackBar.Add(resultado.mensaje, resultado.exitoso ? Severity.Warning : Severity.Error);
             await GetUsuarios();
         }
     }
@@ -126,17 +210,19 @@
     <DialogContent>
         <MudForm @ref="_form_Crear" Model="@nuevoUsuario">
             <MudStack Row Spacing="7" Class="pb-3">
-                <MudTextField Label="Usuario" @bind-Value="nuevoUsuario.Usuario1" Required Variant="Variant.Outlined">
+                <MudTextField Label="Usuario" @bind-Value="nuevoUsuario.Usuario1" Required Variant="Variant.Outlined"
+                              MaxLength="25">
                 </MudTextField>
                 <MudTextField Label="Contraseña" @bind-Value="nuevoUsuario.Contraseña" Required
-                    Variant="Variant.Outlined">
+                              Variant="Variant.Outlined" MaxLength="25">
                 </MudTextField>
                 <MudTextField Label="Nombre Completo" @bind-Value="nuevoUsuario.Nombre" Required
-                    Variant="Variant.Outlined">
+                              Variant="Variant.Outlined" MaxLength="50">
                 </MudTextField>
             </MudStack>
             <MudStack Row Spacing="7" Class="pb-3">
-                <MudTextField Label="Correo" @bind-Value="nuevoUsuario.Correo" Variant="Variant.Outlined">
+                <MudTextField Label="Correo" @bind-Value="nuevoUsuario.Correo" Variant="Variant.Outlined"
+                              MaxLength="50">
                 </MudTextField>
                 <MudSelect T="string" @bind-Value="nuevoUsuario.Rol" Label="Rol" Required Variant="Variant.Outlined">
                     @foreach (var x in roles)
@@ -144,37 +230,69 @@
                         <MudSelectItem Value="x.Name">@x.Name</MudSelectItem>
                     }
                 </MudSelect>
-                <MudSelect T="int" @bind-Value="nuevoUsuario.FkUnidad" Label="Unidad" Required
-                    Variant="Variant.Outlined">
-                    @foreach (var x in Enum.GetValues<Enumerables.Unidades>())
+                <MudSelect T="int?" @bind-Value="unidadSeleccionada" Label="Unidad" Required Variant="Variant.Outlined"
+                           Disabled="!ExistenUnidades">
+                    @foreach (var x in unidades)
                     {
-                        <MudSelectItem Value="@((int)x)">@x</MudSelectItem>
+                        <MudSelectItem Value="@((int?)x.Id)">@x.Nombre</MudSelectItem>
                     }
                 </MudSelect>
+            </MudStack>
+            <MudStack Row Spacing="7" Class="pb-3">
+                <MudSelect T="int?" @bind-Value="departamentoSeleccionado" Label="Departamento" Required
+                           Variant="Variant.Outlined" Disabled="!ExistenDepartamentos">
+                    @foreach (var x in departamentos)
+                    {
+                        <MudSelectItem Value="@((int?)x.Id)">@x.Nombre</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudStack>
+            <MudStack Row Spacing="7" Class="pb-3">
+                <MudExpansionPanel>
+                    @* <MudSelect T="string">
+                        <MudSelectItem Value="Analistas.VerObservaciones">Ver Observaciones</MudSelectItem>
+                    </MudSelect> *@
+                </MudExpansionPanel>
             </MudStack>
         </MudForm>
     </DialogContent>
     <DialogActions>
-        <MudButton Color="Color.Primary" OnClick="CrearUsuario">Guardar</MudButton>
+        <MudButton Color="Color.Primary" OnClick="CrearUsuario" StartIcon="@Icons.Material.Filled.Save">Guardar
+        </MudButton>
     </DialogActions>
 </MudDialog>
 
 
 @code {
+    int? departamentoSeleccionado = null;
+    int? unidadSeleccionada = null;
+
     //CREAR USUARIO, RECARGAR TABLA Y RESETEAR USUARIO NUEVO
     private async Task CrearUsuario()
     {
+
         await _form_Crear.ValidateAsync();
 
         if (_form_Crear.IsValid)
         {
-            await _ServicioUsuarios.CreateUsuario(nuevoUsuario);
+            nuevoUsuario.FkDepartamento = (int)departamentoSeleccionado!;
+            nuevoUsuario.FkUnidad = (int)unidadSeleccionada!;
+            var respuesta = (await _ServicioUsuarios.CrearUsuario(nuevoUsuario));
 
-            await GetUsuarios();
-            nuevoUsuario = new();
-            nuevoUsuario.Rol = roles.FirstOrDefault()!.Id;
-            nuevoUsuario.FkUnidad = unidades.FirstOrDefault()!.Id;
-            await modal_UsuarioNuevo.CloseAsync();
+            if (respuesta.exitoso)
+            {
+                await GetUsuarios();
+                nuevoUsuario = new();
+                nuevoUsuario.Rol = roles.First().Name!;
+                unidadSeleccionada = unidades.First().Id;
+                departamentoSeleccionado = departamentos.First().Id;
+                await modal_UsuarioNuevo.CloseAsync();
+                _SnackBar.Add(respuesta.mensaje, Severity.Success);
+            }
+            else
+            {
+                _SnackBar.Add(respuesta.mensaje, Severity.Error);
+            }
         }
     }
 }
@@ -182,33 +300,43 @@
 @* MODAL PARA ACTUALIZAR USUARIOS *@
 <MudDialog @ref="modal_UsuarioActualizado">
     <DialogContent>
-        <MudForm @ref="_form_Crear" Model="@usuarioActualizado">
+        <MudForm @ref="_form_editar" Model="@usuarioActualizado">
             <MudStack Row Spacing="7" Class="pb-3">
                 <MudTextField Label="Usuario" @bind-Value="usuarioActualizado.Usuario1" Required
-                    Variant="Variant.Outlined">
+                              Variant="Variant.Outlined" MaxLength="25">
                 </MudTextField>
                 <MudTextField Label="Contraseña" @bind-Value="usuarioActualizado.Contraseña" Required
-                    Variant="Variant.Outlined">
+                              Variant="Variant.Outlined" MaxLength="25">
                 </MudTextField>
                 <MudTextField Label="Nombre Completo" @bind-Value="usuarioActualizado.Nombre" Required
-                    Variant="Variant.Outlined">
+                              Variant="Variant.Outlined" MaxLength="50">
                 </MudTextField>
             </MudStack>
             <MudStack Row Spacing="7" Class="pb-3">
-                <MudTextField Label="Correo" @bind-Value="usuarioActualizado.Correo" Variant="Variant.Outlined">
+                <MudTextField Label="Correo" @bind-Value="usuarioActualizado.Correo" Variant="Variant.Outlined"
+                              MaxLength="50">
                 </MudTextField>
                 <MudSelect T="string" @bind-Value="usuarioActualizado.Rol" Label="Rol" Required
-                    Variant="Variant.Outlined">
+                           Variant="Variant.Outlined">
                     @foreach (var x in roles)
                     {
                         <MudSelectItem Value="@x.Name">@x.Name</MudSelectItem>
                     }
                 </MudSelect>
-                <MudSelect T="int" @bind-Value="usuarioActualizado.FkUnidad" Label="Unidad" Required
-                    Variant="Variant.Outlined">
+                <MudSelect T="int?" @bind-Value="unidadSeleccionada" Label="Unidad" Required Variant="Variant.Outlined"
+                           Disabled="!ExistenUnidades">
                     @foreach (var x in Enum.GetValues<Enumerables.Unidades>())
                     {
-                        <MudSelectItem Value="@((int)x)">@x</MudSelectItem>
+                        <MudSelectItem Value="@((int?)x)">@x</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudStack>
+            <MudStack Row Spacing="7" Class="pb-3">
+                <MudSelect T="int?" @bind-Value="departamentoSeleccionado" Label="Departamento" Required
+                           Variant="Variant.Outlined" Disabled="!ExistenDepartamentos">
+                    @foreach (var x in departamentos)
+                    {
+                        <MudSelectItem Value="@((int?)x.Id)">@x.Nombre</MudSelectItem>
                     }
                 </MudSelect>
             </MudStack>
@@ -222,7 +350,43 @@
 @code {
     private async Task ActualizarUsuario()
     {
-        await _ServicioUsuarios.UpdateUsuario(usuarioActualizado, usuarioActualizadoId);
-        await GetUsuarios();
+        await _form_editar.ValidateAsync();
+        if (_form_editar.IsValid)
+        {
+            usuarioActualizado.FkDepartamento = (int)departamentoSeleccionado!;
+            usuarioActualizado.FkUnidad = (int)unidadSeleccionada!;
+            var respuesta = await _ServicioUsuarios.UpdateUsuario(usuarioActualizado, usuarioActualizadoId);
+
+            if (respuesta.exitoso == true)
+            {
+                await GetUsuarios();
+                await modal_UsuarioActualizado.CloseAsync();
+                unidadSeleccionada = unidades.First().Id;
+                departamentoSeleccionado = departamentos.First().Id;
+
+                _SnackBar.Add(respuesta.mensaje, Severity.Info);
+            }
+            else
+            {
+                _SnackBar.Add(respuesta.mensaje, Severity.Error);
+            }
+        }
     }
+}
+
+@* FILTRAR USUARIOS *@
+@code {
+    string? nombreFiltrado = null;
+    string? rolFiltrado = null;
+    int? departamentoFiltrado = null;
+    int? unidadFiltrado = null;
+
+    protected override async Task filtrar()
+    {
+        usuariosFiltrados = (await _ServicioUsuarios.FiltrarUsuarios(filtrado, usuarios)).data ?? new();
+        await dataGrid.ReloadServerData();
+    }
+
+    bool ExistenDepartamentos = true;
+    bool ExistenUnidades = true;
 }

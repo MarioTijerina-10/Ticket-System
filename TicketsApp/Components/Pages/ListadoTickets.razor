@@ -1,0 +1,1132 @@
+﻿@page "/Tickets"
+@attribute [Authorize(Roles = "Admin,Analista")]    
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.WebUtilities
+@using TicketsApp.Components.Razor_Components
+@using TicketsApp.DTO.Tickets
+@using TicketsApp.DTO.Proveedores
+@using TicketsApp.DTO.Departamentos
+@using TicketsApp.DTO.Categorias
+@using ClosedXML.Excel
+@using Helper_Classes
+@using System.Text.Json
+@using DTO.Comentarios
+
+@inject ServicioCamposEstaticos _ServicioDatos
+@inject ServicioCategorias _ServicioCategorias
+@inject ServicioProveedores _Proveedores
+@inject ServicioTickets _ServicioTickets
+@inject ServicioComentarios _ServicioComentarios
+@inject ServicioDepartamentos _ServicioDepartamentos
+@inject NavigationManager _Nav
+@inject AuthenticationStateProvider _Auth
+@inject UserManager<Usuario> _UserManager
+@inject IDialogService _Dialogo
+@inject IJSRuntime JS
+@inject ISnackbar _Snackbar
+
+@code {
+    Usuario? usuario = new();
+    bool AnalistaOAdmin = false;
+    List<GetTickets> tickets = new();
+    List<GetTickets> ticketsFiltrados = new();
+    List<Usuario> analistas = new();
+    List<Estatus> estatus = new();
+    List<GetCategorias> categorias = new();
+    List<GetProveedor> proveedores = new();
+    List<GetDepartamentos> departamentos = new();
+    private MudDataGrid<GetTickets> dataGrid = null!;
+    private int llaveEstatus;
+    private MudDialog modal_editarTicket = null!;
+    private MudForm form_Editar = null!;
+    @* VARIANTES DE SNACKS *@
+    Severity severidadInfo = Severity.Info;
+    Severity severidadError = Severity.Error;
+    Severity severidadExitoso = Severity.Success;
+    FiltroDeTickets filtrado = new();
+    protected override async Task OnInitializedAsync()
+    {
+        var EstadoAuth = await _Auth.GetAuthenticationStateAsync();
+        var EstadoUsuario = EstadoAuth.User;
+        usuario = await _UserManager.GetUserAsync(EstadoUsuario);
+        var roles = await _UserManager.GetRolesAsync(usuario!);
+        AnalistaOAdmin = roles.Contains("Admin") || roles.Contains("Analista");
+
+        await GetTickets();
+        ticketsFiltrados = tickets;
+        if (await _UserManager.IsInRoleAsync(usuario!, "Usuario"))
+            tickets = tickets.Where(t => t.FkUsuario == usuario!.Id).ToList();
+
+        estatus = await _ServicioDatos.GetEstatuses();
+        categorias = (await _ServicioCategorias.GetCategorias()).data ?? categorias;
+        analistas = (await _ServicioDatos.GetAnalistas()).data ?? analistas;
+        departamentos = (await _ServicioDepartamentos.GetAll()).data ?? departamentos;
+        await GetProveedores();
+    }
+
+    private async Task GetTickets()
+    {
+        tickets = (await _ServicioTickets.GetAll()).data!;
+        var uri = _Nav.ToAbsoluteUri(_Nav.Uri);
+        var query = QueryHelpers.ParseQuery(uri.Query);
+
+        if (query.TryGetValue("estatus", out var filtro))
+        {
+            if (int.TryParse(filtro, out var parseado))
+            {
+                llaveEstatus = parseado;
+                tickets = tickets.Where(t => t.FkEstatus == llaveEstatus).ToList();
+                await filtrar();
+            }
+        }
+
+        await filtrar();
+    }
+
+    private async Task GetProveedores()
+    {
+        var proveedoresRespuesta = (await _Proveedores.GetAll()).data;
+        if (proveedoresRespuesta == null)
+            return;
+
+        proveedores = proveedoresRespuesta;
+        provedorAsignado = proveedores.FirstOrDefault() ?? null;
+    }
+
+}
+
+<MudStack Row AlignItems="AlignItems.Center" Justify="Justify.FlexEnd">
+
+    <MudDateRangePicker PickerVariant="PickerVariant.Dialog" Margin="Margin.Normal" Class="mb-2; "
+                        DateRangeChanged="filtrarPorFecha" Clearable="true" DateRange="rangoDeFecha" />
+    <MudButton Color="Color.Tertiary" EndIcon="@Icons.Material.Filled.ImportExport" OnClick="Exportar">Exportar
+    </MudButton>
+</MudStack>
+
+@code {
+    private async Task filtrarPorFecha(DateRange fecha)
+    {
+        rangoDeFecha = fecha;
+        await filtrar();
+    }
+}
+
+@code {
+    private async Task Exportar()
+    {
+        var bytes = await GenerarExcel();
+
+        await
+JS.InvokeVoidAsync("downloadFile", "Tickets.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+bytes);
+    }
+
+    private async Task<byte[]> GenerarExcel()
+    {
+        using var libro = new XLWorkbook();
+
+        var hoja = libro.AddWorksheet();
+
+        hoja.Cell(1, 1).Value = "Id";
+        hoja.Cell(1, 2).Value = "Asunto";
+        hoja.Cell(1, 3).Value = "Descripcion";
+        hoja.Cell(1, 4).Value = "Analista";
+        hoja.Cell(1, 5).Value = "Usuario";
+        hoja.Cell(1, 6).Value = "Departamento";
+        hoja.Cell(1, 7).Value = "Fecha Registro";
+        hoja.Cell(1, 8).Value = "Fecha Asignado";
+        hoja.Cell(1, 9).Value = "Fecha Cierre Parcial";
+        hoja.Cell(1, 10).Value = "Fecha Cierre";
+        hoja.Cell(1, 11).Value = "Duracion Registro - Asignado";
+        hoja.Cell(1, 12).Value = "Duracion Asignado - Cierre Parcial";
+        hoja.Cell(1, 13).Value = "Duracion Cierre Parcial - Cierre";
+        hoja.Cell(1, 14).Value = "Duracion Registro - Cierre Parcial";
+        hoja.Cell(1, 15).Value = "Duracion Registro - Cierre";
+        hoja.Cell(1, 16).Value = "Categoria";
+        hoja.Cell(1, 17).Value = "Estatus";
+        hoja.Cell(1, 18).Value = "Proveedor";
+        hoja.Cell(1, 19).Value = "Unidad";
+        hoja.Cell(1, 20).Value = "Solucion";
+
+        int row = 2;
+
+        foreach (var x in ticketsFiltrados)
+        {
+            hoja.Cell(row, 1).Value = x.Id;
+            hoja.Cell(row, 2).Value = x.Asunto;
+            hoja.Cell(row, 3).Value = x.Descripcion;
+            hoja.Cell(row, 4).Value = x.NomAnalista;
+            hoja.Cell(row, 5).Value = x.NomUsuario;
+            hoja.Cell(row, 6).Value = x.Departamento;
+            hoja.Cell(row, 7).Value = x.FechaInicio;
+            hoja.Cell(row, 8).Value = x.FechaTomado;
+            hoja.Cell(row, 9).Value = x.FechaCierreParcial;
+            hoja.Cell(row, 10).Value = x.FechaCierre;
+            hoja.Cell(row, 11).Value = x.Duracion_Abierto_Asignado;
+            hoja.Cell(row, 12).Value = x.Duracion_Asignado_CierreParcial;
+            hoja.Cell(row, 13).Value = x.Duracion_CierreParcial_Cierre;
+            hoja.Cell(row, 14).Value = x.Duracion_Abierto_CierreParcial;
+            hoja.Cell(row, 15).Value = x.Duracion_Abierto_Cierre;
+            hoja.Cell(row, 16).Value = x.Categoria;
+            hoja.Cell(row, 17).Value = EnumHelper.GetDisplayName(x.Estatuses);
+            hoja.Cell(row, 18).Value = x.NomProvedor;
+            hoja.Cell(row, 19).Value = x.Unidad;
+            hoja.Cell(row, 20).Value = x.Solucion;
+
+            row++;
+        }
+
+        hoja.Columns().AdjustToContents();
+
+        using var stream = new MemoryStream();
+
+        libro.SaveAs(stream);
+        return stream.ToArray();
+    }
+}
+
+<MudDataGrid T="GetTickets" Items="@ticketsFiltrados" SortMode="SortMode.Multiple" Filterable="true" @ref="dataGrid"
+             FilterMode="@DataGridFilterMode.ColumnFilterMenu" FixedHeader="true" Height="80vh" HeaderClass="one-line">
+    <ToolBarContent>
+        <MudText Typo="Typo.h6">Tickets
+            @if (llaveEstatus == 1)
+            {
+                <text>Abiertos</text>
+            }
+            else if (llaveEstatus == 2)
+            {
+                <text>En Proceso</text>
+            }
+            else if (llaveEstatus == 3)
+            {
+                <text>Cerrados Parcialmente</text>
+            }
+            else if (llaveEstatus == 4)
+            {
+                <text>Cerrados</text>
+            }
+        </MudText>
+    </ToolBarContent>
+    <Columns>
+
+        <TemplateColumn Filterable="true">
+            <CellTemplate Context="x">
+                @* Enseña si el ticket es registrado por analista o usuario *@
+                @if (x.Item.RegistradoPorAnalista)
+                {
+                    <MudTooltip Text="Registrado Por Analista">
+                        <MudIcon Icon="@Icons.Material.Outlined.Assignment" Color="Color.Primary" />
+                    </MudTooltip>
+                }
+                else
+                {
+                    <MudTooltip Text="Registrado Por Usuario">
+                        <MudIcon Icon="@Icons.Material.Outlined.AssignmentInd" Color="Color.Tertiary" />
+                    </MudTooltip>
+                }
+            </CellTemplate>
+            <FilterTemplate>
+                <MudSelect T="bool?" Value="@filtrado.RegistradoPorAnalista"
+                           ValueChanged="@(async (bool? v) => await asignarValor_Filtro(v, x => filtrado.RegistradoPorAnalista = x))" Clearable="true">
+                    <MudSelectItem T="bool?" Value="true">Registrado Por Analista</MudSelectItem>
+                    <MudSelectItem T="bool?" Value="false">Registrado Por Usuario</MudSelectItem>
+                </MudSelect>
+            </FilterTemplate>
+        </TemplateColumn>
+        <PropertyColumn Property="x => x.Id" Title="N°" Filterable="false" />
+        <PropertyColumn Property="x => x.NomUsuario" Title="Usuario">
+            <FilterTemplate>
+                <MudTextField T="string" Value="@filtrado.NomUsuario" ValueChanged="@(async (string v) => await asignarValor_Filtro(v, x => filtrado.NomUsuario = x))" Immediate="true"
+                              Label="Usuario" Clearable="true" />
+            </FilterTemplate>
+        </PropertyColumn>
+        <PropertyColumn Property="x => x.NomAnalista" Title="Analista">
+            <FilterTemplate>
+                <MudSelect Value="@filtrado.FkAnalista" Label="Analista " ValueChanged="@(async (string v) => await asignarValor_Filtro(v, x => filtrado.FkAnalista = x))" T="string"
+                           Clearable="true">
+                    @foreach (var x in analistas)
+                    {
+                        <MudSelectItem Value="x.Id">@x.Nombre</MudSelectItem>
+                    }
+                </MudSelect>
+            </FilterTemplate>
+        </PropertyColumn>
+        <PropertyColumn Property="x => x.Asunto" Filterable="false"></PropertyColumn>
+        <TemplateColumn Title="Departamento" Filterable="true">
+            <CellTemplate Context="x">
+                @(x.Item.Departamento)
+            </CellTemplate>
+            <FilterTemplate>
+                <MudSelect T="int?" Value="filtrado.FkDepartamento" Clearable="true" ValueChanged="@(async (int? v) => await asignarValor_Filtro(v, x => filtrado.FkDepartamento = x))" T="string"
+                           Label="Departamento">
+                    @foreach (var x in departamentos)
+                    {
+                        <MudSelectItem Value="(int?)x.Id">@x.Nombre</MudSelectItem>
+                    }
+                </MudSelect>
+            </FilterTemplate>
+        </TemplateColumn>
+        <TemplateColumn Title="Categoria" Filterable="true">
+            <CellTemplate Context="x">
+                @(x.Item.Categoria)
+            </CellTemplate>
+            <FilterTemplate>
+                <MudSelect T="int?" Value="@filtrado.FkCategoria" Clearable="true" ValueChanged="@(async (int? v) => await asignarValor_Filtro(v, x => filtrado.FkCategoria = x))" T="string"
+                           Label="Categoria">
+                    @foreach (var x in categorias)
+                    {
+                        <MudSelectItem Value="(int?)x.Id">@x.Nombre</MudSelectItem>
+                    }
+                </MudSelect>
+            </FilterTemplate>
+        </TemplateColumn>
+        <TemplateColumn Title="Estatus" Filterable="true">
+            <CellTemplate Context="x">
+                @{
+                    Color color = new();
+                    switch (((int)x.Item.Estatuses))
+                    {
+                        case 1:
+                            color = Color.Secondary;
+                            break;
+                        case 2:
+                            color = Color.Warning;
+                            break;
+                        case 3:
+                            color = Color.Info;
+                            break;
+                        case 4:
+                            color = Color.Success;
+                            break;
+                    }
+                    <MudChip Color="color"> @(EnumHelper.GetDisplayName(x.Item.Estatuses))</MudChip>
+                }
+            </CellTemplate>
+            <FilterTemplate>
+                <MudSelect T="int?" Value="@filtrado.FkEstatus" Clearable="true" ValueChanged="@(async (int? v) => await asignarValor_Filtro(v, x => filtrado.FkEstatus = x))" T="string"
+                           Label="Estatus">
+                    @foreach (var x in estatus)
+                    {
+                        <MudSelectItem Value="(int?)x.Id">@x.Nombre</MudSelectItem>
+                    }
+                </MudSelect>
+            </FilterTemplate>
+        </TemplateColumn>
+        <PropertyColumn Property="x => x.FechaInicio" Title="Fecha Registro" Filterable="false" />
+        <PropertyColumn Property="x => x.FechaTomado" Title="Fecha Asignado" Filterable="false" />
+
+        <PropertyColumn Property="x => x.FechaCierreParcial" Title="Fecha Cierre Parcial" Filterable="false" />
+
+        <PropertyColumn Property="x => x.FechaCierre" Title="Fecha Cierre" Filterable="false" />
+        <TemplateColumn Title="Registro - Asignado" Filterable="true">
+            <CellTemplate Context="x">
+                <MudText Style="white-space: nowrap;">@FormaterTiempo(x.Item.Duracion_Abierto_Asignado)</MudText>
+            </CellTemplate>
+            <FilterTemplate>
+                <Componente_FiltroDuracion Value="@filtrado.Duracion_Abierto_Asignado" ValueChanged="@(async (RangoDeTiempo v) => await asignarValor_Filtro(v, x => filtrado.Duracion_Abierto_Asignado = x))"
+                                           RangosDeTiempo="@rangosDeTiempo" />
+            </FilterTemplate>
+        </TemplateColumn>
+        <TemplateColumn Title="Asignado - Cierre Parcial" Filterable="true">
+            <CellTemplate Context="x">
+                <MudText Style="white-space: nowrap;">@FormaterTiempo(x.Item.Duracion_Asignado_CierreParcial)
+                </MudText>
+            </CellTemplate>
+            <FilterTemplate>
+                <Componente_FiltroDuracion Value="@filtrado.Duracion_Asignado_CierreParcial"
+                                           ValueChanged="@(async (RangoDeTiempo v) => await asignarValor_Filtro(v, x => filtrado.Duracion_Asignado_CierreParcial = x))" RangosDeTiempo="@rangosDeTiempo" />
+            </FilterTemplate>
+        </TemplateColumn>
+        <TemplateColumn Title="Cierre Parcial - Cierre" Filterable="true">
+            <CellTemplate Context="x">
+                <MudText Style="white-space: nowrap;">@FormaterTiempo(x.Item.Duracion_CierreParcial_Cierre)
+                </MudText>
+            </CellTemplate>
+            <FilterTemplate>
+                <Componente_FiltroDuracion Value="@filtrado.Duracion_CierreParcial_Cierre"
+                                           ValueChanged="@(async (RangoDeTiempo v) => await asignarValor_Filtro(v, x => filtrado.Duracion_CierreParcial_Cierre = x))" RangosDeTiempo="@rangosDeTiempo"/>
+            </FilterTemplate>
+        </TemplateColumn>
+        <TemplateColumn Title="Registro - Cierre Parcial" HeaderClass="one-line" Filterable="true">
+            <CellTemplate Context="x">
+                <MudText Style="white-space: nowrap;">@FormaterTiempo(x.Item.Duracion_Abierto_CierreParcial)
+                </MudText>
+            </CellTemplate>
+            <FilterTemplate>
+                <Componente_FiltroDuracion Value="@filtrado.Duracion_Abierto_CierreParcial"
+                                           ValueChanged="@(async (RangoDeTiempo v) => await asignarValor_Filtro(v, x => filtrado.Duracion_Abierto_CierreParcial = x))" RangosDeTiempo="@rangosDeTiempo" />
+            </FilterTemplate>
+        </TemplateColumn>
+        <TemplateColumn Title="Registro - Cierre" Filterable="true">
+            <CellTemplate Context="x">
+                <MudText Style="white-space: nowrap;">@FormaterTiempo(x.Item.Duracion_Abierto_Cierre)</MudText>
+            </CellTemplate>
+            <FilterTemplate>
+                <Componente_FiltroDuracion Value="@filtrado.Duracion_Abierto_Cierre" ValueChanged="@(async (RangoDeTiempo v) => await asignarValor_Filtro(v, x => filtrado.Duracion_Abierto_Cierre = x))"
+                                           RangosDeTiempo="@rangosDeTiempo" />
+            </FilterTemplate>
+        </TemplateColumn>
+        <PropertyColumn Property="x => x.NomProvedor" Title="Proveedor Asignado" Filterable="false">
+        </PropertyColumn>
+        <TemplateColumn StickyRight="true" Title="Acciones" Hideable="true">
+            <CellTemplate Context="x">
+                <MudStack Row>
+                    <MudTooltip Text="Visualizar">
+                        <MudIconButton Size="@Size.Medium" Color="Color.Info" Icon="@Icons.Material.Filled.RemoveRedEye"
+                                       OnClick="async () => await AbrirTicket(x.Item.Id)" />
+                    </MudTooltip>
+
+                    <MudTooltip Text="Observaciones">
+                        <MudIconButton Size="@Size.Medium" Color="Color.Surface" Icon="@Icons.Material.Filled.Note"
+                                       OnClick="async () => await GetComentarios(x.Item.Id, x.Item.Asunto)" />
+                    </MudTooltip>
+                    @if (AnalistaOAdmin)
+                    {
+                        @if (x.Item.FkEstatus == 1)
+                        {
+                            <MudTooltip Text="Tomar">
+                                <MudIconButton Size="@Size.Medium" Color="Color.Warning" Icon="@Icons.Material.Filled.Work"
+                                               OnClick="async () => await AsignarTicket(x.Item.Id, usuario!.Id)" />
+                            </MudTooltip>
+                        }
+                        @if ((x.Item.FkEstatus == 2 || x.Item.FkEstatus == 3) && x.Item.FkAnalista == usuario!.Id)
+                        {
+                            <MudTooltip Text="Editar">
+                                <MudIconButton Size="@Size.Medium" Color="Color.Tertiary" Icon="@Icons.Material.Filled.Edit"
+                                               OnClick="() => AbrirModalEdit(x.Item.Id)" />
+                            </MudTooltip>
+                        }
+                        @if (x.Item.FkEstatus == 2 && x.Item.FkAnalista == usuario!.Id)
+                        {
+                            <MudTooltip Text="Asignar">
+                                <MudIconButton Size="@Size.Medium" Color="Color.Secondary" Icon="@Icons.Material.Filled.Person"
+                                               OnClick="async () => await AbrirModal_Asignacion(x.Item.Id)" />
+                            </MudTooltip>
+                        }
+                        @if (x.Item.FkEstatus == 2 && x.Item.AsignadoAProvedor == true && x.Item.FkAnalista ==
+                        usuario!.Id)
+                        {
+                            <MudTooltip Text="Desasignar">
+                                <MudIconButton Size="@Size.Medium" Color="Color.Surface" Icon="@Icons.Material.Filled.DoDisturb"
+                                               OnClick="async () => await AbrirDialogo_Desasignar_Provedor(x.Item.Id)" />
+                            </MudTooltip>
+                        }
+                    }
+                    @if (x.Item.FkEstatus == 3 && x.Item.FkUsuario == usuario!.Id)
+                    {
+                        <MudTooltip Text="Cerrar">
+                            <MudIconButton Size="@Size.Medium" Color="Color.Success" Icon="@Icons.Material.Filled.Check"
+                                           OnClick="async ()=> await AbrirModal_CerrarTicket(x.Item.Id)" />
+                        </MudTooltip>
+
+                        <MudTooltip Text="Reasignar">
+                            <MudIconButton Size="@Size.Medium" Color="Color.Primary" Icon="@Icons.Material.Filled.Backspace"
+                                           OnClick="async ()=> await AbrirModal_Reasignar(x.Item.Id)" aria-la />
+                        </MudTooltip>
+                    }
+                </MudStack>
+            </CellTemplate>
+        </TemplateColumn>
+    </Columns>
+</MudDataGrid>
+
+@* Variable para Rangos de Tiempo para filtros de duracion de Componente_FiltrouDuracion *@
+@code {
+    List<RangoDeTiempo> rangosDeTiempo = new() {
+        new(){
+            Inicio = TimeSpan.FromMinutes(0), Final = TimeSpan.FromMinutes(15)
+        },
+        new(){
+            Inicio = TimeSpan.FromMinutes(16), Final = TimeSpan.FromMinutes(30)
+        },
+        new(){
+            Inicio = TimeSpan.FromMinutes(31), Final = TimeSpan.FromMinutes(60)
+        },
+        new(){
+            Inicio = TimeSpan.FromMinutes(60), Final = null
+        },
+        new(){
+            Inicio = TimeSpan.FromHours(1), Final = TimeSpan.FromHours(3)
+        },
+        new(){
+            Inicio = TimeSpan.FromHours(3), Final = TimeSpan.FromHours(6)
+        },
+        new(){
+            Inicio = TimeSpan.FromHours(6), Final = TimeSpan.FromHours(12)
+        },
+
+        new(){
+            Inicio = TimeSpan.FromHours(12), Final = TimeSpan.FromHours(24)
+        },
+        new(){
+            Inicio = TimeSpan.FromHours(24), Final = null
+        }
+    };
+}
+
+@code {
+    @* Funcion para los  valores de filtro, el parametro asignador es la accion de asignacion que se lleva acabo *@
+    private async Task asignarValor_Filtro<T>(T valor, Action<T> asignador)
+    {
+        asignador(valor);
+        await filtrar();
+    }
+
+    @* Aplica todos los filtros asignados a ticketsFiltrados  *@
+    private async Task filtrar()
+    {
+        filtrado.rangoDeFecha = rangoDeFecha;
+        ticketsFiltrados = (await _ServicioTickets.filtrarTickets(filtrado, tickets)).data ?? ticketsFiltrados;
+        await dataGrid.ReloadServerData();
+    }
+
+    DateRange rangoDeFecha = null!;
+
+    CrearComentariosTickets comentarioNuevo = new();
+
+    private async Task AsignarTicket(int Id, string usuarioId)
+    {
+        if (usuario != null)
+        {
+            var respuesta = await _ServicioTickets.AsignarTicket(Id, usuarioId);
+            if (respuesta.exitoso == true)
+            {
+                _Snackbar.Add(respuesta.mensaje, severidadInfo);
+                await GetTickets();
+                comentarioNuevo.Contenido = $"Ticket fue asignado a tecnico: {usuario.Nombre}";
+                comentarioNuevo.FkTicket = Id;
+                comentarioNuevo.FkUsuario = usuario.Id;
+
+                await _ServicioComentarios.CrearComentario(comentarioNuevo);
+                await filtrar();
+                await dataGrid.ReloadServerData();
+                await modal_asignar_analista.CloseAsync();
+            }
+            else
+            {
+                _Snackbar.Add(respuesta.mensaje, severidadError);
+            }
+        }
+    }
+}
+
+<MudDialog @ref="modal_editarTicket" TitleClass="dialog-title">
+    <DialogContent>
+        <MudForm @ref="form_Editar" Model="ticketEditado">
+            <MudStack Spacing="7" Class="pb-3">
+                <MudTextField Label="Solucion" @bind-Value="ticketEditado.Solucion" Variant="Variant.Outlined" Required>
+                </MudTextField>
+                <MudSelect T="int" @bind-Value="ticketEditado.FkCategoria" Label="Categoria" Required Class="mt-3">
+                    @foreach (var x in categorias)
+                    {
+                        <MudSelectItem Value="x.Id">@x.Nombre</MudSelectItem>
+                    }
+                </MudSelect>
+                <MudSelect T="int" @bind-Value="ticketEditado.FkEstatus" Label="Estatus" Required Class="mt-3">
+                    @foreach (var x in estatus)
+                    {
+                        if (x.Id != 4 && x.Id != 1)
+                        {
+                            <MudSelectItem Value="x.Id">@x.Nombre</MudSelectItem>
+                        }
+                    }
+                </MudSelect>
+            </MudStack>
+        </MudForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton Color="Color.Primary" OnClick="() => EditarTicket(ticketActualId)"
+                   StartIcon="@Icons.Material.Filled.Edit">Guardar
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    UpdateTickets ticketEditado = new();
+    int ticketActualId;
+
+    private async Task AbrirModalEdit(int Id)
+    {
+        var ticketActual = (await _ServicioTickets.GetOne(Id)).data;
+
+        ticketActualId = Id;
+        ticketEditado.Solucion = ticketActual!.Solucion;
+        ticketEditado.FkCategoria = ticketActual!.FkCategoria;
+        ticketEditado.FkEstatus = ticketActual.FkEstatus;
+
+        await modal_editarTicket.ShowAsync("Editar Ticket", new DialogOptions()
+        {
+            BackgroundClass = "blur",
+            FullWidth = true,
+            MaxWidth = MaxWidth.Large
+        });
+    }
+
+    private async Task EditarTicket(int Id)
+    {
+        await form_Editar.ValidateAsync();
+        if (form_Editar.IsValid)
+        {
+            await _ServicioTickets.UpdateTickets(ticketEditado, Id);
+            if (ticketEditado.FkEstatus == 3)
+                comentarioNuevo.Contenido = $"Ticket cerrado parcialmente: {ticketEditado.Solucion}";
+            else if (ticketEditado.FkEstatus == 2)
+            {
+                comentarioNuevo.Contenido = $"Ticket devuelto a estado en proceso por Tecnico.";
+            }
+            comentarioNuevo.FkTicket = Id;
+            comentarioNuevo.FkUsuario = usuario!.Id;
+            await _ServicioComentarios.CrearComentario(comentarioNuevo);
+
+            ticketEditado = new();
+            await GetTickets();
+            await dataGrid.ReloadServerData();
+            await modal_editarTicket.CloseAsync();
+        }
+    }
+}
+
+<MudDialog @ref="modal_verTicket" TitleClass="dialog-title">
+    <DialogContent>
+        <MudStack Spacing="7" Class="pb-3 mb-5 mt-5 d-flex" Row>
+            <MudStack Class="flex-1">
+                <MudText Typo="Typo.subtitle1" Style="font-weight: bold;">Asunto</MudText>
+                <MudText>@ticketVisualisado.Asunto</MudText>
+            </MudStack>
+            <MudStack Class=" flex-1">
+                <MudText Typo="Typo.subtitle1" Style="font-weight: bold;">Descripcion</MudText>
+                <MudText>@ticketVisualisado.Descripcion</MudText>
+            </MudStack>
+            <MudStack Class=" flex-1">
+                <MudText Typo="Typo.subtitle1" Style="font-weight: bold;">Usuario</MudText>
+                <MudText>@ticketVisualisado.NomUsuario</MudText>
+            </MudStack>
+            <MudStack Class=" flex-1">
+                <MudText Typo="Typo.subtitle1" Style="font-weight: bold;">Analista</MudText>
+                <MudText>@ticketVisualisado.NomAnalista</MudText>
+            </MudStack>
+        </MudStack>
+        <MudStack Spacing=" 7" Class="pb-3 mb-5 mt-5 d-flex" Row>
+
+            <MudStack Class="flex-1">
+
+                <MudText Typo="Typo.subtitle1" Style="font-weight: bold;">Solucion</MudText>
+
+                <MudText>
+                    @if (ticketVisualisado.Solucion != null)
+                    {
+                        @ticketVisualisado.Solucion
+                    }
+                    else
+                    {
+                        <text>N/a</text>
+                    }
+                </MudText>
+            </MudStack>
+            <MudStack Class=" flex-1">
+                <MudText Typo="Typo.subtitle1" Style="font-weight: bold;">Estatus</MudText>
+                <MudText>@EnumHelper.GetDisplayName(ticketVisualisado.Estatuses)</MudText>
+            </MudStack>
+            <MudStack Class=" flex-1">
+                <MudText Typo="Typo.subtitle1" Style="font-weight: bold;">Categoria</MudText>
+                <MudText>@ticketVisualisado.Categoria</MudText>
+            </MudStack>
+            <MudStack Class=" flex-1">
+                <MudText Typo="Typo.subtitle1" Style="font-weight: bold;">Proveedor Asignado</MudText>
+                <MudText>
+                    @if (ticketVisualisado.FkProvedor != null)
+                    {
+                        <text>@ticketVisualisado.NomProvedor</text>
+                    }
+                    else
+                    {
+                        <text>N/a</text>
+                    }
+                </MudText>
+            </MudStack>
+        </MudStack>
+        <MudStack Spacing=" 7" Class="pb-3 mb-5 mt-5 d-flex" Row>
+            <MudStack Class="flex-1">
+                <MudText Typo="Typo.subtitle1" Style="font-weight: bold;">Fecha de Registro</MudText>
+                <MudText>@ticketVisualisado.FechaInicio</MudText>
+            </MudStack>
+            <MudStack Class=" flex-1">
+
+                <MudText Typo="Typo.subtitle1" Style="font-weight: bold;">Fecha de Asignacion</MudText>
+                <MudText>
+                    @if (ticketVisualisado.FechaTomado != null)
+                    {
+                        <text>@ticketVisualisado.FechaTomado</text>
+                    }
+                    else
+                    {
+                        <text>N/a</text>
+                    }
+                </MudText>
+            </MudStack>
+            <MudStack Class=" flex-1">
+
+                <MudText Typo="Typo.subtitle1" Style="font-weight: bold;">Fecha Cerrado por Analista</MudText>
+                <MudText>
+                    @if (ticketVisualisado.FechaCierreParcial != null)
+                    {
+                        <text>@ticketVisualisado.FechaCierreParcial</text>
+                    }
+                    else
+                    {
+                        <text>N/a</text>
+                    }
+                </MudText>
+            </MudStack>
+            <MudStack Class=" flex-1">
+
+                <MudText Typo="Typo.subtitle1" Style="font-weight: bold;">Fecha Cerrado por Usuario</MudText>
+                <MudText>
+                    @if (ticketVisualisado.FechaCierre != null)
+                    {
+                        <text>@ticketVisualisado.FechaCierre</text>
+                    }
+                    else
+                    {
+                        <text>N/a</text>
+                    }
+                </MudText>
+            </MudStack>
+        </MudStack>
+        <MudStack Spacing=" 7" Class="pb-3" Row>
+            <MudStack Class="flex-1">
+                <MudText Typo="Typo.subtitle1" Style="font-weight: bold;">Tiempo Registro - Asignado</MudText>
+                <MudText>
+                    @if (ticketVisualisado.Duracion_Abierto_Asignado != null)
+                    {
+                        <text>@FormaterTiempo(ticketVisualisado.Duracion_Abierto_Asignado)</text>
+                    }
+                    else
+                    {
+                        <text>N/a</text>
+                    }
+                </MudText>
+            </MudStack>
+            <MudStack Class="flex-1">
+                <MudText Typo="Typo.subtitle1" Style="font-weight: bold;">Tiempo Asignado - Cierre Parcial</MudText>
+                <MudText>
+                    @if (ticketVisualisado.Duracion_Asignado_CierreParcial != null)
+                    {
+                        <text>@FormaterTiempo(ticketVisualisado.Duracion_Asignado_CierreParcial)</text>
+                    }
+                    else
+                    {
+                        <text>N/a</text>
+                    }
+                </MudText>
+            </MudStack>
+            <MudStack Class="flex-1">
+                <MudText Typo="Typo.subtitle1" Style="font-weight: bold;">Tiempo Cierre Parcial - Cierre</MudText>
+                <MudText>
+                    @if (ticketVisualisado.Duracion_CierreParcial_Cierre != null)
+                    {
+                        <text>@FormaterTiempo(ticketVisualisado.Duracion_CierreParcial_Cierre)</text>
+                    }
+                    else
+                    {
+                        <text>N/a</text>
+                    }
+                </MudText>
+            </MudStack>
+        </MudStack>
+        <MudStack Spacing=" 7" Class="pb-3" Row>
+            <MudStack Class="flex-1">
+                <MudText Typo="Typo.subtitle1" Style="font-weight: bold;">Tiempo Registro - Cierre Parcial</MudText>
+                <MudText>
+                    @if (ticketVisualisado.Duracion_Abierto_CierreParcial != null)
+                    {
+                        <text>@FormaterTiempo(ticketVisualisado.Duracion_Abierto_CierreParcial)</text>
+                    }
+                    else
+                    {
+                        <text>N/a</text>
+                    }
+                </MudText>
+            </MudStack>
+            <MudStack Class="flex-1">
+                <MudText Typo="Typo.subtitle1" Style="font-weight: bold;">Tiempo Registro - Cierre</MudText>
+                <MudText>
+                    @if (ticketVisualisado.Duracion_Abierto_Cierre != null)
+                    {
+                        <text>@FormaterTiempo(ticketVisualisado.Duracion_Abierto_Cierre)</text>
+                    }
+                    else
+                    {
+                        <text>N/a</text>
+                    }
+                </MudText>
+            </MudStack>
+            <MudStack Class="flex-1">
+                <MudText Typo="Typo.subtitle1" Style="font-weight: bold;">Cerrado por: </MudText>
+                <MudText>
+                    @if (ticketVisualisado.CerradoPor == null)
+                    {
+                        <text>N/A</text>
+                    }
+                    else
+                    {
+                        @(ticketVisualisado.CerradoPor == true ? "Usuario" : "Sistema")
+                    }
+                </MudText>
+            </MudStack>
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton Color=" Color.Primary" StartIcon="@Icons.Material.Filled.Close"
+                   OnClick="async () => await modal_verTicket.CloseAsync()">Cerrar
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    MudDialog modal_verTicket = null!;
+
+    GetTickets ticketVisualisado = new();
+
+    private async Task AbrirTicket(int Id)
+    {
+        ticketVisualisado = (await _ServicioTickets.GetOne(Id)).data!;
+        await modal_verTicket.ShowAsync($"Ticket: {ticketVisualisado.Asunto}", new DialogOptions()
+        {
+            BackgroundClass = "blur",
+            FullWidth = true,
+            MaxWidth = MaxWidth.ExtraLarge
+        });
+    }
+}
+
+<MudDialog @ref="modal_cerrarTicket"></MudDialog>
+
+@code {
+    MudDialog modal_cerrarTicket = null!;
+
+    private async Task CerrarTicket(int Id, int Estatus)
+    {
+        var respuesta = await _ServicioTickets.EditarEstatus(Id, Estatus);
+        comentarioNuevo.Contenido = "Ticket Cerrado por Usuario";
+        comentarioNuevo.FkTicket = Id;
+        comentarioNuevo.FkUsuario = usuario!.Id;
+
+        if (respuesta.exitoso == true)
+            _Snackbar.Add(respuesta.mensaje, severidadExitoso);
+        await _ServicioComentarios.CrearComentario(comentarioNuevo);
+        await GetTickets();
+
+        await dataGrid.ReloadServerData();
+    }
+
+    private async Task AbrirModal_CerrarTicket(int Id)
+    {
+        var resultado = await _Dialogo.ShowMessageBoxAsync(title: "Cerrar Ticket?",
+    markupMessage: (MarkupString)"<b>Desea dar por cerrado este Ticket?</b>",
+    yesText: "Aceptar",
+    cancelText: "Cancelar");
+
+        if (resultado == true)
+        {
+            await CerrarTicket(Id, 4);
+        }
+    }
+}
+
+<MudDialog @ref="modal_ConfirmarAsignacion" TitleClass="dialog-title">
+    <DialogContent>
+        <MudText Typo="Typo.body1" Class="mb-5 mt-5">A quien se le va a asignar este Ticket?</MudText>
+        <MudStack Row>
+            <MudButton Color="Color.Info" StartIcon="@Icons.Material.Filled.Person"
+                       OnClick="AbrirModal_Asignar_Analista">
+                Analista
+            </MudButton>
+            <MudButton Color="Color.Warning" StartIcon="@Icons.Material.Filled.CorporateFare"
+                       OnClick='Abrir_Modal_Proveedor'>Provedor
+            </MudButton>
+        </MudStack>
+    </DialogContent>
+</MudDialog>
+
+
+@code {
+    private async Task Abrir_Modal_Proveedor()
+    {
+        await modal_ConfirmarAsignacion.CloseAsync();
+        await modal_asignar_provedor.
+        ShowAsync("Asignar Proveedor", new DialogOptions()
+        { CloseButton = true, MaxWidth = MaxWidth.Small, FullWidth = true });
+    }
+
+    MudDialog modal_ConfirmarAsignacion = null!;
+    int ticket_a_asignar;
+    private async Task AbrirModal_Asignacion(int Id)
+    {
+        ticket_a_asignar = Id;
+        await modal_ConfirmarAsignacion.ShowAsync("Asignar Ticket?", options: new DialogOptions()
+        {
+            CloseButton = true,
+            MaxWidth = MaxWidth.Small,
+            FullWidth = true
+        });
+    }
+
+    private async Task AbrirModal_Asignar_Analista()
+    {
+        await modal_ConfirmarAsignacion.CloseAsync();
+        await modal_asignar_analista.ShowAsync("Asignar Analista", options: new DialogOptions()
+        {
+            CloseButton = true,
+            MaxWidth = MaxWidth.Small,
+            FullWidth = true
+        });
+    }
+}
+
+<MudDialog TitleClass="dialog-title" @ref="modal_asignar_analista">
+    <DialogContent>
+        <MudForm @ref="form_asignar_analista">
+            <MudSelect @bind-value="analistaAsignado" Required>
+                @foreach (var x in analistas)
+                {
+                    <MudSelectItem Value="x.Id">@x.Nombre</MudSelectItem>
+                }
+            </MudSelect>
+        </MudForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton Color="Color.Tertiary" EndIcon="@Icons.Material.Filled.Person" OnClick="AsignarAnalista">
+            Asignar
+        </MudButton>
+        <MudButton Color="Color.Secondary" EndIcon="@Icons.Material.Filled.Cancel" OnClick="CerrarAsignacion">
+            Cancelar
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    MudDialog modal_asignar_analista = null!;
+    string analistaAsignado = null!;
+    private async Task CerrarAsignacion()
+    {
+        analistaAsignado = null!;
+        await modal_asignar_analista.CloseAsync();
+    }
+}
+
+<MudDialog TitleClass="dialog-title" @ref="modal_asignar_analista">
+    <DialogContent>
+        <MudSelect @bind-value="analistaAsignado" Required>
+            @foreach (var x in analistas)
+            {
+                <MudSelectItem Value="x.Id">@x.Nombre</MudSelectItem>
+            }
+        </MudSelect>
+    </DialogContent>
+    <DialogActions>
+        <MudButton Color="Color.Tertiary" EndIcon="@Icons.Material.Filled.Person"
+                   OnClick="async () => await AsignarTicket(ticket_a_asignar, analistaAsignado)">
+            Asignar
+        </MudButton>
+        <MudButton Color="Color.Secondary" EndIcon="@Icons.Material.Filled.Cancel" OnClick="CerrarAsignacion">
+            Cancelar
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    MudForm form_asignar_analista = null!;
+    MudForm form_asignar_proveedor = null!;
+
+    private async Task AsignarAnalista()
+    {
+        await form_asignar_analista.ValidateAsync();
+        if (form_asignar_analista.IsValid)
+        {
+            await AsignarTicket(ticket_a_asignar, analistaAsignado);
+            await modal_asignar_analista.CloseAsync();
+        }
+    }
+}
+
+<MudDialog @ref="modal_asignar_provedor" TitleClass="dialog-title">
+    <DialogContent>
+        <MudForm @ref="form_asignar_proveedor">
+            <MudSelect Label="Proveedor" @bind-value="@provedorAsignado" Required
+                       Disabled="@(proveedores.Count() == 0)">
+                @foreach (var x in proveedores)
+                {
+                    <MudSelectItem Value="@x">@x.Nombre</MudSelectItem>
+                }
+            </MudSelect>
+        </MudForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton Color="Color.Tertiary" EndIcon="@Icons.Material.Filled.Person"
+                   OnClick="
+                   async () => { if (provedorAsignado != null) { await AsignarAProvedor(ticket_a_asignar, provedorAsignado.Nombre, true); } }">
+Asignar
+</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    MudDialog modal_asignar_provedor = null!;
+    GetProveedor? provedorAsignado = new();
+
+    private async Task AsignarAProvedor(int Id, string provedor, bool estado)
+    {
+        var respuesta = await _ServicioTickets.AsignarAProvedor(Id, provedorAsignado!.Id, estado);
+        if (respuesta.exitoso == true)
+        {
+            if (form_asignar_proveedor.IsValid)
+            {
+                await form_asignar_proveedor.ValidateAsync();
+                comentarioNuevo.Contenido = $"Ticket asignado a proveedor:   {provedor}";
+                comentarioNuevo.FkTicket = Id;
+                comentarioNuevo.FkUsuario = usuario!.Id;
+
+                await _ServicioComentarios.CrearComentario(comentarioNuevo);
+                await GetTickets();
+                await modal_asignar_provedor.CloseAsync();
+                provedorAsignado = proveedores.FirstOrDefault() ?? new GetProveedor();
+                _Snackbar.Add(respuesta.mensaje, severidadInfo);
+            }
+        }
+        else
+        {
+            _Snackbar.Add($"Hubo un Error al Asignara a Proveedor: {respuesta.mensaje}");
+        }
+    }
+}
+
+@code {
+    private async Task AbrirDialogo_Desasignar_Provedor(int Id)
+    {
+        ticket_a_asignar = Id;
+
+        var respuesta = await _Dialogo.ShowMessageBoxAsync(title: "Desasignar Proveedor?",
+    markupMessage: (MarkupString)"<b>Desea desasignar este ticket?</b>",
+    yesText: "Aceptar",
+    cancelText: "Cancelar");
+
+        if (respuesta == true)
+        {
+            await _ServicioTickets.AsignarAProvedor(ticket_a_asignar, null, false);
+            comentarioNuevo.Contenido = $"Ticket fue desasignado de provedor";
+            comentarioNuevo.FkTicket = Id;
+            comentarioNuevo.FkUsuario = usuario!.Id;
+
+            await _ServicioComentarios.CrearComentario(comentarioNuevo);
+            await GetTickets();
+        }
+    }
+}
+
+<MudDialog TitleClass="dialog-title" @ref="modal_observaciones">
+    <DialogContent>
+        <MudStack>
+            @foreach (var x in comentarios)
+            {
+                <MudText Typo="Typo.subtitle1">@x.NomUsuario</MudText>
+                <MudText Typo="Typo.body1">@x.Contenido - @x.FechaCreacion</MudText>
+                <MudDivider />
+            }
+        </MudStack>
+    </DialogContent>
+</MudDialog>
+
+@code {
+    MudDialog modal_observaciones = null!;
+    List<GetComentariosTickets> comentarios = new();
+
+    private async Task GetComentarios(int Id, string asunto)
+    {
+        comentarios = (await _ServicioComentarios.GetComentarios_Ticket(Id)).data ?? comentarios;
+
+        await modal_observaciones.ShowAsync($"Observaciones {asunto}", new DialogOptions()
+        {
+            CloseButton = true,
+            MaxWidth = MaxWidth.Large,
+            FullWidth = true
+        });
+    }
+}
+
+<MudDialog TitleClass="dialog-title" @ref="modal_reasignar">
+    <DialogContent>
+        <MudStack>
+            <MudForm @ref="Form_reasignar">
+                <MudTextField Label="Observaciones" Required @bind-Value="comentario_reasignacion.Contenido" Lines="3"
+                              Class="mb-4" FullWidth="true" />
+            </MudForm>
+        </MudStack>
+        <MudStack Row>
+            <MudButton Color="Color.Warning" EndIcon="@Icons.Material.Filled.Backspace" OnClick="ReasignarTicket">
+                Reasignar</MudButton>
+                <MudButton Color="Color.Secondary" EndIcon="@Icons.Material.Filled.Cancel"
+                           OnClick="() => modal_reasignar.CloseAsync() ">Cancelar</MudButton>
+            </MudStack>
+        </DialogContent>
+    </MudDialog>
+
+@code {
+    MudDialog modal_reasignar = null!;
+    MudForm Form_reasignar = null!;
+    CrearComentariosTickets comentario_reasignacion = new();
+
+    private async Task AbrirModal_Reasignar(int Id)
+    {
+        await modal_reasignar.ShowAsync("Reasignar Ticket", new DialogOptions()
+        {
+            MaxWidth = MaxWidth.Large,
+            FullWidth = true,
+        });
+        comentario_reasignacion.FkTicket = Id;
+    }
+
+    private async Task ReasignarTicket()
+    {
+        await Form_reasignar.ValidateAsync();
+
+        if (Form_reasignar.IsValid)
+        {
+            var respuesta = await _ServicioTickets.EditarEstatus((int)comentario_reasignacion.FkTicket!, 2);
+
+            if (respuesta.exitoso == true)
+            {
+                comentario_reasignacion.Contenido = $"Ticket reasignado: {comentario_reasignacion.Contenido}";
+                comentario_reasignacion.FkUsuario = usuario!.Id;
+                await _ServicioComentarios.CrearComentario(comentario_reasignacion);
+                await GetTickets();
+
+                await filtrar();
+                await dataGrid.ReloadServerData();
+                await modal_reasignar.CloseAsync();
+                comentario_reasignacion = new();
+
+                _Snackbar.Add("El Ticket Fue Abierto de Nuevo Correcamente", severidadInfo);
+            }
+            else
+            {
+                _Snackbar.Add($"Hubo un Error al intentar reabrir el Ticket: {respuesta.mensaje}", severidadError);
+            }
+        }
+    }
+}
+
+@* //HELPER METHODS *@
+@code {
+    private string? FormaterTiempo(TimeSpan? tiempo)
+    {
+        var duracion = tiempo;
+        string duracionFormateada = "";
+        if (duracion != null)
+        {
+            duracionFormateada = $"{duracion.Value.Days}d {duracion.Value.Hours}h {duracion.Value.Minutes}m";
+        }
+        return duracionFormateada;
+    }
+}

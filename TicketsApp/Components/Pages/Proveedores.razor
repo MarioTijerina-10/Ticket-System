@@ -1,0 +1,163 @@
+@page "/Proveedores"
+@inherits ComponenteBase
+@using DTO.Proveedores
+@using DTO.Categorias
+@inject ServicioProveedores _Proveedores
+@inject IDialogService _Dialogo
+@inject ISnackbar _Snackbar
+@inject ServicioCategorias _Categorias
+
+@code {
+    List<GetProveedor> proveedoresFiltrados = new();
+    FiltroDeProveedores filtrado = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await GetProveedores();
+        await GetCategorias();
+    }
+
+    List<GetProveedor> proveedores = new();
+    private async Task GetProveedores()
+    {
+        var proveedoresRespuesta = (await _Proveedores.GetAll()).data;
+        if (proveedoresRespuesta == null)
+            return;
+
+        proveedores = proveedoresRespuesta;
+        proveedoresFiltrados = proveedoresRespuesta;
+        await data_grid.ReloadServerData();
+    }
+
+    List<GetCategorias> categorias = new();
+    private async Task GetCategorias()
+    {
+        categorias = (await _Categorias.GetCategorias()).data ?? categorias;
+    }
+
+    MudDataGrid<GetProveedor> data_grid = null!;
+}
+
+<MudButton StartIcon="@Icons.Material.Filled.AddCircle" Color="Color.Info" OnClick="@AbrirModalNuevo">Nuevo Proveedor
+</MudButton>
+
+
+<MudDataGrid T="GetProveedor" Items="proveedoresFiltrados" @ref="data_grid" Filterable="false">
+    <ToolBarContent>
+        <MudText Typo="Typo.h6">Proveedores</MudText>
+    </ToolBarContent>
+    <Columns>
+        <PropertyColumn Property="p => p.Id" Title="Id">Id</PropertyColumn>
+        <PropertyColumn Property="p => p.Nombre" Title="Nombre" />
+        <TemplateColumn Title="Nombre" Filterable="true">
+            <CellTemplate Context="x">
+                @x.Item.Nombre
+            </CellTemplate>
+            <FilterTemplate>
+                <MudTextField Label="Nombre" Value="@filtrado.Nombre"
+                              ValueChanged="@(async (string? v) => await AsignarValorFiltro(v, x => @filtrado.Nombre = x))" />
+            </FilterTemplate>
+        </TemplateColumn>
+        <PropertyColumn Property="p => p.NomCategoria" Title="Categoria" />
+        <TemplateColumn Title="Categoria" Filterable="true">
+            <CellTemplate Context="x">
+                @x.Item.NomCategoria
+            </CellTemplate>
+            <FilterTemplate>
+                <MudSelect Label="Categoria" Value="@filtrado.FkCategoria"
+                           ValueChanged="@(async (int? v) => await AsignarValorFiltro(v, x => @filtrado.FkCategoria = x))"
+                           Clearable="true">
+                    @foreach (var x in categorias)
+                    {
+                        <MudSelectItem Value="@x.Id">@x.Nombre</MudSelectItem>
+                    }
+                </MudSelect>
+            </FilterTemplate>
+        </TemplateColumn>
+        <TemplateColumn>
+            <CellTemplate Context="x">
+                <MudStack AlignItems="AlignItems.End">
+                    <MudButton Color="Color.Warning" EndIcon="@Icons.Material.Filled.Delete"
+                               OnClick="() => EliminarProveedor(x.Item.Id)">Eliminar</MudButton>
+                </MudStack>
+            </CellTemplate>
+        </TemplateColumn>
+    </Columns>
+</MudDataGrid>
+
+@code {
+    private async Task EliminarProveedor(int Id)
+    {
+        var respuesta = await _Dialogo.ShowMessageBoxAsync(title: "Eliminar Proveedor", (MarkupString)"Deseas remover este proveedor del catalogo?", yesText: "Eliminar", cancelText: "Cancelar");
+
+        if (respuesta == true)
+        {
+            var mensajeDeRespuesta = await _Proveedores.EliminarProveedor(Id);
+            _Snackbar.Add(mensajeDeRespuesta.mensaje, mensajeDeRespuesta.exitoso ? Severity.Warning : Severity.Error);
+            await GetProveedores();
+        }
+    }
+}
+
+@code {
+    MudDialog modal_nuevo_proveedor = null!;
+    MudForm form_nuevo_proveedor = null!;
+
+    CreateProveedor proveedorNuevo = new();
+
+    private async Task AbrirModalNuevo()
+    {
+
+        proveedorNuevo.Nombre = "";
+        proveedorNuevo.FkCategoria = categorias.FirstOrDefault()!.Id;
+        await modal_nuevo_proveedor.ShowAsync("Nuevo Proveedor", new DialogOptions()
+        {
+            CloseButton = true,
+            BackgroundClass = "blur",
+            FullWidth = true,
+            MaxWidth = MaxWidth.Small
+        });
+    }
+
+    private async Task CrearProveedor()
+    {
+        await form_nuevo_proveedor.ValidateAsync();
+        if (form_nuevo_proveedor.IsValid)
+        {
+            var respuesta = await _Proveedores.CrearProveedor(proveedorNuevo);
+
+            if (respuesta.exitoso)
+            {
+                await form_nuevo_proveedor.ResetAsync();
+                await GetProveedores();
+                await modal_nuevo_proveedor.CloseAsync();
+            }
+
+            _Snackbar.Add(respuesta.mensaje, respuesta.exitoso ? Severity.Success : Severity.Error);
+        }
+    }
+
+    protected override async Task filtrar()
+    {
+        proveedoresFiltrados = (await _Proveedores.FiltrarProveedores(filtrado, proveedores)).data ?? proveedoresFiltrados;
+        await data_grid.ReloadServerData();
+    }
+}
+
+<MudDialog @ref="modal_nuevo_proveedor" TitleClass="dialog-title">
+    <DialogContent>
+        <MudForm @ref="form_nuevo_proveedor">
+            <MudTextField Label="Nombre" Required @bind-Value="@proveedorNuevo.Nombre" />
+            <MudSelect @bind-Value="proveedorNuevo.FkCategoria" Label="Categoria" Class="mt-2">
+                @foreach (var x in categorias)
+                {
+                    <MudSelectItem Value="x.Id">@x.Nombre</MudSelectItem>
+                }
+            </MudSelect>
+        </MudForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton Color="Color.Primary" StartIcon="@Icons.Material.Filled.Save" OnClick="@CrearProveedor">Guardar
+        </MudButton>
+    </DialogActions>
+</MudDialog>

@@ -1,0 +1,102 @@
+@page "/Unidades"
+@inject ServicioUnidades _Unidades
+@inject IDialogService _Dialogo
+@inject ISnackbar _Snackbar
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        await GetUnidades();
+    }
+
+    List<Unidad>? unidades = new();
+
+    private async Task GetUnidades()
+    {
+        unidades = (await _Unidades.GetAllUnidades()).data ?? unidades;
+        await data_grid.ReloadServerData();
+    }
+}
+
+<MudButton Color="Color.Info" StartIcon="@Icons.Material.Filled.AddCircle" OnClick="abrir_modal_unidad_nueva">
+    Nueva Unidad
+</MudButton>
+
+
+@code {
+    private MudDataGrid<Unidad> data_grid = null!;
+}
+
+<MudDataGrid T="Unidad" Items="unidades" Filterable="false" @ref="data_grid">
+    <ToolBarContent>
+        <MudText Typo="Typo.h6">Unidades</MudText>
+    </ToolBarContent>
+    <Columns>
+        <PropertyColumn Property="u => u.Id" Title="Id"></PropertyColumn>
+        <PropertyColumn Property="u => u.Nombre" Title="Nombre"></PropertyColumn>
+        <TemplateColumn>
+            <CellTemplate Context="x">
+                <MudStack Row AlignItems="AlignItems.End" Justify="Justify.FlexEnd">
+                    <MudButton Color="Color.Warning" OnClick="() => EliminarUnidad(x.Item.Id)">Eliminar</MudButton>
+                </MudStack>
+            </CellTemplate>
+        </TemplateColumn>
+    </Columns>
+</MudDataGrid>
+
+@code {
+    MudDialog modal_nueva_unidad = null!;
+    MudForm form_nueva_unidad = null!;
+
+    string nomUnidadNueva = "";
+    private async Task crearUnidad()
+    {
+        Unidad unidadNueva = new() { Nombre = nomUnidadNueva };
+        var respuesta = await _Unidades.CrearUnidad(unidadNueva);
+
+        if (respuesta.exitoso)
+        {
+            await GetUnidades();
+            await form_nueva_unidad.ResetAsync();
+            await modal_nueva_unidad.CloseAsync();
+        }
+
+        _Snackbar.Add(respuesta.mensaje, respuesta.exitoso ? Severity.Success : Severity.Error);
+    }
+
+    private async Task abrir_modal_unidad_nueva()
+    {
+        await modal_nueva_unidad.ShowAsync("Nueva Unidad", new DialogOptions()
+        {
+            CloseButton = true,
+            BackgroundClass = "blur"
+        });
+    }
+}
+
+<MudDialog @ref="modal_nueva_unidad" TitleClass="dialog-title">
+    <DialogContent>
+        <MudForm @ref="form_nueva_unidad">
+            <MudTextField Class="m-4" @bind-value="nomUnidadNueva" Required Label="Nombre" />
+        </MudForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton Color="Color.Primary" StartIcon="@Icons.Material.Filled.Save" OnClick="crearUnidad">Guardar
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    private async Task EliminarUnidad(int Id)
+    {
+        var resultado = await _Dialogo.ShowMessageBoxAsync(title: "Eliminr Unidad?", markupMessage: (MarkupString)"Desea remover esta unidad de la lista?",
+yesText: "Eliminar", cancelText: "Cancelar");
+
+        if (resultado == true)
+        {
+            var respuesta = await _Unidades.Deshabilitar(Id);
+            _Snackbar.Add(respuesta.mensaje, respuesta.exitoso ? Severity.Success : Severity.Error);
+            await GetUnidades();
+        }
+    }
+}

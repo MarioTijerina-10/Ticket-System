@@ -1,0 +1,57 @@
+@inject ILogger<Componente_DateTime> _Log
+
+<MudStack Class="border border-solid mud-border-info pa-4 flex-1">
+    <MudText>@label</MudText>
+    <MudStack Row>
+        <MudDatePicker Date="fecha" DateChanged="@AsignarFecha" AutoClose Required
+                       RequiredError="La Fecha es Ob ligatoria" Color="color" Variant="Variant.Outlined">Fecha</MudDatePicker>
+        <MudTimePicker Time="tiempo" TimeChanged="@AsignarTiempo" AutoClose Required
+                       RequiredError="La Fecha es Obligatoria" AmPm Color="color" Variant="Variant.Outlined">Hora
+        </MudTimePicker>
+    </MudStack>
+</MudStack>
+
+@code {
+    Color color = Color.Info;
+    DateTime? fecha = DateTime.Now.Date;
+    TimeSpan? tiempo = DateTime.Now.TimeOfDay;
+
+    @* Asigna el valor de fecha *@
+    private async Task AsignarFecha(DateTime? valor)
+    {
+        fecha = valor;
+
+        await AsignarValor();
+    }
+
+    @* Asigna el valor del tiempo *@
+    private async Task AsignarTiempo(TimeSpan? valor)
+    {
+        tiempo = valor;
+
+        await AsignarValor();
+    }
+
+    @* Regresara valor de fecha y tiempo completo *@
+    private async Task AsignarValor()
+    {
+        try
+        {
+            if (fecha is null || tiempo is null)
+                return;
+
+            fecha_tiempo = fecha.Value + tiempo.Value;
+
+            await fecha_tiempoChanged.InvokeAsync(fecha_tiempo);
+        }
+        catch (Exception ex)
+        {
+            _Log.LogError(ex, $"Hubo un error en el Componente de DateTime");
+            Console.WriteLine($"Hubo un error en el Componente de DateTime {ex}");
+        }
+    }
+
+    [Parameter] public string label { get; set; } = null!;
+    [Parameter] public DateTime? fecha_tiempo { get; set; }
+    [Parameter] public EventCallback<DateTime?> fecha_tiempoChanged { get; set; }
+}

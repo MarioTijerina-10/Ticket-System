@@ -10,6 +10,11 @@ using TicketsApp.Servicio;
 using Microsoft.Extensions.Options;
 using System.Reflection.Emit;
 using TicketsApp.Models;
+using Microsoft.EntityFrameworkCore.Metadata.Internal;
+using Microsoft.AspNetCore.Components;
+using TicketsApp.Servicios;
+using DocumentFormat.OpenXml.VariantTypes;
+using System.Text.Json.Serialization;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -30,13 +35,17 @@ async Task SeedRoles(IServiceProvider services)
 }
 
 // Add MudBlazor services
-builder.Services.AddMudServices();
+builder.Services.AddMudServices(config =>
+{
+    config.SnackbarConfiguration.SnackbarVariant = MudBlazor.Variant.Outlined;
+    config.SnackbarConfiguration.VisibleStateDuration = 3000;
+});
 builder.Services.AddMudTranslations();
 builder.Services.AddDbContextFactory<TicketsDbContext>(options => options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 builder.Services.AddDefaultIdentity<Usuario>(opc =>
 {
     opc.SignIn.RequireConfirmedAccount = false;
-}).AddRoles<IdentityRole>().AddEntityFrameworkStores<TicketsDbContext>();
+}).AddRoles<IdentityRole>().AddEntityFrameworkStores<TicketsDbContext>().AddSignInManager();
 
 builder.Services.Configure<IdentityOptions>(opt =>
 {
@@ -46,15 +55,43 @@ builder.Services.Configure<IdentityOptions>(opt =>
     opt.Password.RequireLowercase = false;
     opt.Password.RequiredLength = 1;
 });
+builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
 
-builder.Services.AddAuthentication();
+builder.Services.AddControllers();
 builder.Services.AddAuthorization();
 
+
+builder.Services.ConfigureApplicationCookie(options =>
+{
+    options.LoginPath = "/InicioDeSesion";
+    options.Cookie.SameSite = SameSiteMode.Lax;
+    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+});
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 builder.Services.AddScoped<ServicioUsuarios>();
+builder.Services.AddScoped<ServicioTickets>();
 builder.Services.AddScoped<ServicioCamposEstaticos>();
+builder.Services.AddScoped<ServicioComentarios>();
+builder.Services.AddScoped<ServicioProveedores>();
+builder.Services.AddScoped<ServicioUnidades>();
+builder.Services.AddScoped<ServicioCategorias>();
+builder.Services.AddScoped<ServicioDepartamentos>();
+builder.Services.AddScoped<PlantillasCorreo>();
+builder.Services.AddTransient<ServicioCorreo>();
+builder.Services.AddSingleton<EmailQueue>();
+builder.Services.AddHostedService<ServicoCerrarTickets>();
+builder.Services.AddHostedService<ServicioDeFondoCorreo>();
+
+builder.Services.AddScoped(sp =>
+{
+    var navigation = sp.GetRequiredService<NavigationManager>();
+    return new HttpClient
+    {
+        BaseAddress = new Uri(navigation.BaseUri)
+    };
+});
 builder.Services.AddMemoryCache();
 
 var app = builder.Build();
@@ -68,12 +105,15 @@ if (!app.Environment.IsDevelopment())
 }
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
 
+app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
-app.UseHttpsRedirection();
 
-var scope = app.Services.CreateAsyncScope();
-await SeedRoles(scope.ServiceProvider);
+using (var scope = app.Services.CreateAsyncScope())
+{
+    var services = scope.ServiceProvider;
+    await SeedRoles(scope.ServiceProvider);
+}
 
 app.UseAntiforgery();
 
@@ -81,5 +121,6 @@ app.MapStaticAssets();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 app.MapRazorPages();
+app.MapControllers();
 
 app.Run();

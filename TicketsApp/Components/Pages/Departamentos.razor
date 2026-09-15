@@ -1,0 +1,103 @@
+@page "/Departamentos"
+@using TicketsApp.DTO.Departamentos
+@inject ServicioDepartamentos _Departamentos
+@inject IDialogService _Dialogo
+@inject ISnackbar _Snackbar
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        await GetDepartamentos();
+    }
+
+    List<GetDepartamentos>? departamentos = new();
+
+    private async Task GetDepartamentos()
+    {
+        departamentos = (await _Departamentos.GetAll()).data ?? departamentos;
+        await data_grid.ReloadServerData();
+    }
+}
+
+<MudButton Color="Color.Info" StartIcon="@Icons.Material.Filled.AddCircle" OnClick="abrir_modal_Departamento_nueva">
+    Nueva Departamento
+</MudButton>
+
+
+@code {
+    private MudDataGrid<GetDepartamentos> data_grid = null!;
+}
+
+<MudDataGrid T="GetDepartamentos" Items="@departamentos" Filterable="false" @ref="data_grid">
+    <ToolBarContent>
+        <MudText Typo="Typo.h6">Departamentos</MudText>
+    </ToolBarContent>
+    <Columns>
+        <PropertyColumn Property="u => u.Id" Title="Id"></PropertyColumn>
+        <PropertyColumn Property="u => u.Nombre" Title="Nombre"></PropertyColumn>
+        <TemplateColumn>
+            <CellTemplate Context="x">
+                <MudStack Row AlignItems="AlignItems.End" Justify="Justify.FlexEnd">
+                    <MudButton Color="Color.Warning" OnClick="() => EliminarDepartamento(x.Item.Id)">Eliminar
+                    </MudButton>
+                </MudStack>
+            </CellTemplate>
+        </TemplateColumn>
+    </Columns>
+</MudDataGrid>
+
+@code {
+    MudDialog modal_nueva_Departamento = null!;
+    MudForm form_nueva_Departamento = null!;
+
+    string departamentoNuevo = "";
+    private async Task crearDepartamento()
+    {
+        var respuesta = await _Departamentos.Crear(departamentoNuevo);
+
+        if (respuesta.exitoso)
+        {
+            await GetDepartamentos();
+            await form_nueva_Departamento.ResetAsync();
+            await modal_nueva_Departamento.CloseAsync();
+        }
+
+        _Snackbar.Add(respuesta.mensaje, respuesta.exitoso ? Severity.Success : Severity.Error);
+    }
+
+    private async Task abrir_modal_Departamento_nueva()
+    {
+        await modal_nueva_Departamento.ShowAsync("Nuevo Departamento", new DialogOptions()
+        {
+            CloseButton = true,
+            BackgroundClass = "blur"
+        });
+    }
+}
+
+<MudDialog @ref="modal_nueva_Departamento" TitleClass="dialog-title">
+    <DialogContent>
+        <MudForm @ref="form_nueva_Departamento">
+            <MudTextField Class="m-4" @bind-value="@departamentoNuevo" Required Label="Nombre" />
+        </MudForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton Color="Color.Primary" StartIcon="@Icons.Material.Filled.Save" OnClick="crearDepartamento">Guardar
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    private async Task EliminarDepartamento(int Id)
+    {
+        var resultado = await _Dialogo.ShowMessageBoxAsync(title: "Eliminr Departamento?", markupMessage: (MarkupString)"Desea remover este Departamento de la lista?",
+yesText: "Eliminar", cancelText: "Cancelar");
+
+        if (resultado == true)
+        {
+            var mensajeDeRespuesta = await _Departamentos.Eliminar(Id);
+            _Snackbar.Add(mensajeDeRespuesta.mensaje, mensajeDeRespuesta.exitoso ? Severity.Success : Severity.Error);
+            await GetDepartamentos();
+        }
+    }
+}

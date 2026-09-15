@@ -1,10 +1,16 @@
 ﻿@page "/InicioDeSesion"
+@layout LoginLayout
+@using Microsoft.AspNetCore.Components.Authorization
 @inject SignInManager<Usuario> _SignInManager
 @inject NavigationManager _Navegador
+@inject HttpClient _Http
+@inject AuthenticationStateProvider _Autenticacion
+@inject IJSRuntime _Js
 
 @code {
     LoginUsuario credenciales = new();
     MudForm form_login = new();
+    bool loginValido = true;
 
     private async Task LoginUsuario()
     {
@@ -12,37 +18,47 @@
 
         if (form_login.IsValid)
         {
-            var respuesta = await _SignInManager.PasswordSignInAsync(userName: credenciales.Usuario, password:
-            credenciales.Contraseña, isPersistent:
-            false,
-            lockoutOnFailure: false);
+            var respuesta = await _Js.InvokeAsync<bool>("login", credenciales);
 
-            if (respuesta.Succeeded)
+            if (respuesta)
             {
-                _Navegador.NavigateTo("/");
+                loginValido = true;
+                _Navegador.NavigateTo("/Inicio", true); // reload → auth applied
+            }
+            else
+            {
+                loginValido = false;
             }
         }
     }
 }
+
 <MudStack Justify="Justify.Center" AlignItems="AlignItems.Center" Style="height: 100vh;">
     <MudGrid Al Justify="Justify.Center" Class="ps-a">
         <MudItem xs="10" sm="6" md="5" lg="5">
             <MudPaper Class="pa-8">
                 <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Class="ma-3 border-solid">
-                    <MudText Typo="Typo.h5">Cyr-Tickets</MudText>
+                    <MudText Typo="Typo.h5">Tickets</MudText>
                     <MudText Typo="Typo.h6">Inicio de Sesion</MudText>
                 </MudStack>
                 <MudSpacer />
                 <MudForm @ref="form_login" Model="@credenciales">
                     <MudStack Class="pa-5 border-solid border mud-border-primary"
-                        Style="border-color: white !important;">
-                        <MudTextField Label="Usuario" @bind-Value="credenciales.Usuario" Required
-                            Variant="Variant.Outlined">
+                              Style="border-color: white !important;">
+                        <MudText>Usuario</MudText>
+                        <MudTextField @bind-Value="credenciales.Usuario" Required Variant="Variant.Outlined"
+                                      MaxLength="25">
                         </MudTextField>
-                        <MudTextField Label="Contraseña" @bind-Value="credenciales.Contraseña" Required
-                            Variant="Variant.Outlined" InputType="InputType.Password"></MudTextField>
+                        <MudText>Contraseña</MudText>
+                        <MudTextField @bind-Value="credenciales.Contraseña" Required Variant="Variant.Outlined"
+                                      InputType="InputType.Password" MaxLength="25"></MudTextField>
                         <MudButton Size="Size.Large" Color="Color.Info" OnClick="LoginUsuario">Iniciar Sesion
                         </MudButton>
+
+                        @if (!loginValido)
+                        {
+                            <MudAlert Severity="@Severity.Error">Usuario o Contraseña no validos</MudAlert>
+                        }
                     </MudStack>
                 </MudForm>
             </MudPaper>

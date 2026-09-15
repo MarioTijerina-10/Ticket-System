@@ -13,12 +13,21 @@ public class GetUsuario
 
     public string Usuario { get; set; } = null!;
 
+    public int FkDepartamento { get; set; }
+
+    public string Departamento { get; set; } = null!;
+
+    public string NomDepartamento { get; set; } = null!;
+
     public IList<string> Rol { get; set; } = null!;
 
     public string? Correo { get; set; }
 
     public string Contraseña { get; set; } = null!;
 
-    public Enumerables.Unidades Unidad { get; set; }
+    public string ContraseñaVisible { get; set; } = null!;
 
+    public string Unidad { get; set; } = null!;
+
+    public int FkUnidad { get; set; }
 }

@@ -168,6 +168,10 @@ namespace TicketsApp.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<bool>("Activo")
+                        .HasColumnType("bit")
+                        .HasColumnName("activo");
+
                     b.Property<string>("Nombre")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -177,6 +181,96 @@ namespace TicketsApp.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Categorias");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            Activo = true,
+                            Nombre = "Software"
+                        },
+                        new
+                        {
+                            Id = 2,
+                            Activo = true,
+                            Nombre = "Hardware"
+                        },
+                        new
+                        {
+                            Id = 3,
+                            Activo = true,
+                            Nombre = "Sistemas ERP"
+                        },
+                        new
+                        {
+                            Id = 4,
+                            Activo = true,
+                            Nombre = "Red e Internet"
+                        },
+                        new
+                        {
+                            Id = 5,
+                            Activo = true,
+                            Nombre = "Impresoras"
+                        });
+                });
+
+            modelBuilder.Entity("TicketsApp.Models.ComentarioTicket", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasColumnName("id");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Contenido")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("Contenido");
+
+                    b.Property<DateTime>("FechaCreacion")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("FkTicket")
+                        .HasColumnType("int")
+                        .HasColumnName("fk_ticket");
+
+                    b.Property<string>("FkUsuario")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)")
+                        .HasColumnName("fk_usuario");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FkTicket");
+
+                    b.HasIndex("FkUsuario");
+
+                    b.ToTable("Comentarios");
+                });
+
+            modelBuilder.Entity("TicketsApp.Models.Departamento", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasColumnName("id");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("Activo")
+                        .HasColumnType("bit")
+                        .HasColumnName("activo");
+
+                    b.Property<string>("Nombre")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("nombre");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Departamentos");
                 });
 
             modelBuilder.Entity("TicketsApp.Models.Estatus", b =>
@@ -197,6 +291,57 @@ namespace TicketsApp.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Estatus", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            Nombre = "Abierto"
+                        },
+                        new
+                        {
+                            Id = 2,
+                            Nombre = "En Proceso"
+                        },
+                        new
+                        {
+                            Id = 3,
+                            Nombre = "Cerrado Parcial"
+                        },
+                        new
+                        {
+                            Id = 4,
+                            Nombre = "Cerrado"
+                        });
+                });
+
+            modelBuilder.Entity("TicketsApp.Models.Proveedor", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasColumnName("id");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("Activo")
+                        .HasColumnType("bit")
+                        .HasColumnName("activo");
+
+                    b.Property<int>("FkCategoria")
+                        .HasColumnType("int")
+                        .HasColumnName("fk_categoria");
+
+                    b.Property<string>("Nombre")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("nombre");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FkCategoria");
+
+                    b.ToTable("Proveedor");
                 });
 
             modelBuilder.Entity("TicketsApp.Models.Ticket", b =>
@@ -213,30 +358,59 @@ namespace TicketsApp.Migrations
                         .HasColumnType("nvarchar(50)")
                         .HasColumnName("anydesk");
 
+                    b.Property<bool>("AsignadoAProvedor")
+                        .HasColumnType("bit")
+                        .HasColumnName("AsignadoAProvedor");
+
                     b.Property<string>("Asunto")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)")
                         .HasColumnName("asunto");
+
+                    b.Property<bool?>("CerradoPorUsuario")
+                        .HasColumnType("bit")
+                        .HasColumnName("cerrado_por_usuario");
 
                     b.Property<string>("Descripcion")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)")
                         .HasColumnName("descripcion");
 
-                    b.Property<DateTime?>("Duracion")
-                        .HasColumnType("datetime")
-                        .HasColumnName("duracion");
+                    b.Property<int?>("Duracion")
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("int")
+                        .HasColumnName("duracion")
+                        .HasComputedColumnSql("DATEDIFF(MINUTE, fecha_inicio, fecha_cierre)");
 
-                    b.Property<DateOnly?>("FechaCierre")
-                        .HasColumnType("date")
+                    b.Property<int?>("Duracion_Abierto_Cierre")
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("int")
+                        .HasColumnName("Duracion_Abierto_Cierre")
+                        .HasComputedColumnSql("DATEDIFF(MINUTE, fecha_inicio, fecha_cierre)");
+
+                    b.Property<int?>("Duracion_Abierto_CierreParcial")
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("int")
+                        .HasColumnName("Duracion_Abierto_CierreParcial")
+                        .HasComputedColumnSql("DATEDIFF(MINUTE, fecha_inicio, FechaCierreParcial)");
+
+                    b.Property<DateTime?>("FechaCierre")
+                        .HasColumnType("datetime")
                         .HasColumnName("fecha_cierre");
 
-                    b.Property<DateOnly>("FechaInicio")
-                        .HasColumnType("date")
+                    b.Property<DateTime?>("FechaCierreParcial")
+                        .HasColumnType("datetime")
+                        .HasColumnName("FechaCierreParcial");
+
+                    b.Property<DateTime>("FechaInicio")
+                        .HasColumnType("datetime")
                         .HasColumnName("fecha_inicio");
 
+                    b.Property<DateTime?>("FechaTomado")
+                        .HasColumnType("datetime")
+                        .HasColumnName("FechaTomado");
+
                     b.Property<string>("FkAnalista")
-                        .IsRequired()
                         .HasColumnType("nvarchar(450)")
                         .HasColumnName("fk_analista");
 
@@ -248,18 +422,47 @@ namespace TicketsApp.Migrations
                         .HasColumnType("int")
                         .HasColumnName("fk_estatus");
 
+                    b.Property<int?>("FkProvedor")
+                        .HasColumnType("int")
+                        .HasColumnName("Provedor");
+
                     b.Property<int>("FkUnidad")
                         .HasColumnType("int")
                         .HasColumnName("fk_unidad");
 
                     b.Property<string>("FkUsuario")
-                        .IsRequired()
                         .HasColumnType("nvarchar(450)")
                         .HasColumnName("fk_usuario");
+
+                    b.Property<bool>("RegistradoPorAnalista")
+                        .HasColumnType("bit")
+                        .HasColumnName("registrado_por_analista");
+
+                    b.Property<string>("RegistroPropio_Razon")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("registro_propio_razon");
 
                     b.Property<string>("Solucion")
                         .HasColumnType("nvarchar(max)")
                         .HasColumnName("solucion");
+
+                    b.Property<int?>("TiempoAbierto")
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("int")
+                        .HasColumnName("TiempoAbierto")
+                        .HasComputedColumnSql("DATEDIFF(MINUTE, fecha_inicio, FechaTomado)");
+
+                    b.Property<int?>("TiempoHastaCierre")
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("int")
+                        .HasColumnName("TiempoHastaCierre")
+                        .HasComputedColumnSql("DATEDIFF(MINUTE, FechaCierreParcial, fecha_cierre   )");
+
+                    b.Property<int?>("TiempoHastaCierreParcial")
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("int")
+                        .HasColumnName("TiempoHastaCierreParcial")
+                        .HasComputedColumnSql("DATEDIFF(MINUTE, FechaTomado, FechaCierreParcial)");
 
                     b.HasKey("Id");
 
@@ -268,6 +471,8 @@ namespace TicketsApp.Migrations
                     b.HasIndex("FkCategoria");
 
                     b.HasIndex("FkEstatus");
+
+                    b.HasIndex("FkProvedor");
 
                     b.HasIndex("FkUnidad");
 
@@ -285,6 +490,10 @@ namespace TicketsApp.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<bool>("Activo")
+                        .HasColumnType("bit")
+                        .HasColumnName("activo");
+
                     b.Property<string>("Nombre")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -294,6 +503,38 @@ namespace TicketsApp.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Unidades");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            Activo = true,
+                            Nombre = "Cyrburgos"
+                        },
+                        new
+                        {
+                            Id = 2,
+                            Activo = true,
+                            Nombre = "BDF"
+                        },
+                        new
+                        {
+                            Id = 3,
+                            Activo = true,
+                            Nombre = "DPC"
+                        },
+                        new
+                        {
+                            Id = 4,
+                            Activo = true,
+                            Nombre = "Energy Point"
+                        },
+                        new
+                        {
+                            Id = 5,
+                            Activo = true,
+                            Nombre = "Orga"
+                        });
                 });
 
             modelBuilder.Entity("TicketsApp.Models.Usuario", b =>
@@ -312,12 +553,20 @@ namespace TicketsApp.Migrations
                         .IsConcurrencyToken()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("ContraseñaVisible")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("contraseña_visible");
+
                     b.Property<string>("Email")
                         .HasMaxLength(256)
                         .HasColumnType("nvarchar(256)");
 
                     b.Property<bool>("EmailConfirmed")
                         .HasColumnType("bit");
+
+                    b.Property<int>("FkDepartamento")
+                        .HasColumnType("int");
 
                     b.Property<int>("FkUnidad")
                         .HasColumnType("int")
@@ -362,6 +611,8 @@ namespace TicketsApp.Migrations
                         .HasColumnType("nvarchar(256)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("FkDepartamento");
 
                     b.HasIndex("FkUnidad");
 
@@ -427,12 +678,41 @@ namespace TicketsApp.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("TicketsApp.Models.ComentarioTicket", b =>
+                {
+                    b.HasOne("TicketsApp.Models.Ticket", "FkTicketNavigation")
+                        .WithMany("ComentariosTickets")
+                        .HasForeignKey("FkTicket")
+                        .OnDelete(DeleteBehavior.ClientNoAction)
+                        .IsRequired();
+
+                    b.HasOne("TicketsApp.Models.Usuario", "FkUsuarioNavigation")
+                        .WithMany("ComentarioTicketFkUsuarioNavigations")
+                        .HasForeignKey("FkUsuario")
+                        .OnDelete(DeleteBehavior.ClientCascade)
+                        .IsRequired();
+
+                    b.Navigation("FkTicketNavigation");
+
+                    b.Navigation("FkUsuarioNavigation");
+                });
+
+            modelBuilder.Entity("TicketsApp.Models.Proveedor", b =>
+                {
+                    b.HasOne("TicketsApp.Models.Categoria", "FkCategoriaNavigation")
+                        .WithMany("Proveedores")
+                        .HasForeignKey("FkCategoria")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("FkCategoriaNavigation");
+                });
+
             modelBuilder.Entity("TicketsApp.Models.Ticket", b =>
                 {
                     b.HasOne("TicketsApp.Models.Usuario", "FkAnalistaNavigation")
                         .WithMany("TicketFkAnalistaNavigations")
                         .HasForeignKey("FkAnalista")
-                        .IsRequired()
                         .HasConstraintName("FK_Tickets_Analistas");
 
                     b.HasOne("TicketsApp.Models.Categoria", "FkCategoriaNavigation")
@@ -447,6 +727,11 @@ namespace TicketsApp.Migrations
                         .IsRequired()
                         .HasConstraintName("FK_Tickets_Estatus");
 
+                    b.HasOne("TicketsApp.Models.Proveedor", "FkProveedorNavigation")
+                        .WithMany("Tickets")
+                        .HasForeignKey("FkProvedor")
+                        .HasConstraintName("FK_Tickets_Proveedores");
+
                     b.HasOne("TicketsApp.Models.Unidad", "FkUnidadNavigation")
                         .WithMany("Tickets")
                         .HasForeignKey("FkUnidad")
@@ -456,7 +741,6 @@ namespace TicketsApp.Migrations
                     b.HasOne("TicketsApp.Models.Usuario", "FkUsuarioNavigation")
                         .WithMany("TicketFkUsuarioNavigations")
                         .HasForeignKey("FkUsuario")
-                        .IsRequired()
                         .HasConstraintName("FK_Tickets_Usuarios");
 
                     b.Navigation("FkAnalistaNavigation");
@@ -465,6 +749,8 @@ namespace TicketsApp.Migrations
 
                     b.Navigation("FkEstatusNavigation");
 
+                    b.Navigation("FkProveedorNavigation");
+
                     b.Navigation("FkUnidadNavigation");
 
                     b.Navigation("FkUsuarioNavigation");
@@ -472,23 +758,48 @@ namespace TicketsApp.Migrations
 
             modelBuilder.Entity("TicketsApp.Models.Usuario", b =>
                 {
+                    b.HasOne("TicketsApp.Models.Departamento", "FkDepartamentoNavigation")
+                        .WithMany("UsuariosDepartamentoNavigations")
+                        .HasForeignKey("FkDepartamento")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.HasOne("TicketsApp.Models.Unidad", "FkUnidadNavigation")
                         .WithMany("Usuarios")
                         .HasForeignKey("FkUnidad")
                         .IsRequired()
                         .HasConstraintName("FK_Usuarios_Unidades");
 
+                    b.Navigation("FkDepartamentoNavigation");
+
                     b.Navigation("FkUnidadNavigation");
                 });
 
             modelBuilder.Entity("TicketsApp.Models.Categoria", b =>
                 {
+                    b.Navigation("Proveedores");
+
                     b.Navigation("Tickets");
+                });
+
+            modelBuilder.Entity("TicketsApp.Models.Departamento", b =>
+                {
+                    b.Navigation("UsuariosDepartamentoNavigations");
                 });
 
             modelBuilder.Entity("TicketsApp.Models.Estatus", b =>
                 {
                     b.Navigation("Tickets");
+                });
+
+            modelBuilder.Entity("TicketsApp.Models.Proveedor", b =>
+                {
+                    b.Navigation("Tickets");
+                });
+
+            modelBuilder.Entity("TicketsApp.Models.Ticket", b =>
+                {
+                    b.Navigation("ComentariosTickets");
                 });
 
             modelBuilder.Entity("TicketsApp.Models.Unidad", b =>
@@ -500,6 +811,8 @@ namespace TicketsApp.Migrations
 
             modelBuilder.Entity("TicketsApp.Models.Usuario", b =>
                 {
+                    b.Navigation("ComentarioTicketFkUsuarioNavigations");
+
                     b.Navigation("TicketFkAnalistaNavigations");
 
                     b.Navigation("TicketFkUsuarioNavigations");

@@ -18,12 +18,14 @@ public class Enumerables
 
     public enum Categorias
     {
-        Hardware = 1,
-        Software = 2,
+        Software = 1,
+        Hardware = 2,
+        [Display(Name = "Sistemas ERP")]
+        SistemasERP = 4,
         [Display(Name = "Redes e Internet")]
         RedesEInternet = 3,
-        [Display(Name = "Sistemas ERP")]
-        SistemasERP = 4
+        Impresoras = 5,
+        Otro = 6
     }
 
     public enum Estatus

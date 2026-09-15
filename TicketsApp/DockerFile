@@ -1,0 +1,13 @@
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+WORKDIR /src
+COPY ["TicketsApp.csproj", "./"]
+RUN dotnet restore "TicketsApp.csproj"
+
+COPY . .
+RUN dotnet publish "TicketsApp.csproj" -c Release -o /app/publish --no-restore
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
+WORKDIR /app
+EXPOSE 80
+EXPOSE 443
+COPY --from=build /app/publish .
+ENTRYPOINT ["dotnet" "TicketsApp.csproj"]

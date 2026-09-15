@@ -1,0 +1,111 @@
+@page "/Categorias"
+
+@using DTO.Categorias
+@inject ServicioCategorias _Categorias
+@inject IDialogService _Dialogo
+@inject ServicioCamposEstaticos _Campos
+@inject ISnackbar _Snackbar
+
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        await GetCategorias();
+    }
+
+    async Task GetCategorias()
+    {
+        categorias = (await _Categorias.GetCategorias()).data ?? categorias;
+        await data_grid.ReloadServerData();
+    }
+
+    List<GetCategorias> categorias = new();
+
+    MudDataGrid<GetCategorias> data_grid = null!;
+}
+
+<MudButton StartIcon="@Icons.Material.Filled.AddCircle" Color="Color.Info" OnClick="@AbrirModalNuevo">Nueva Categoria
+</MudButton>
+
+@code {
+    string nuevaCategoria = "";
+
+    private MudDialog modal_nuevo = null!;
+    private MudForm form_nuevo = null!;
+
+    private async Task AbrirModalNuevo()
+    {
+        nuevaCategoria = "";
+        await modal_nuevo.ShowAsync("Nueva Categoria", new DialogOptions()
+        {
+            CloseButton = true,
+            BackgroundClass = "blur",
+            FullWidth = true,
+            MaxWidth = MaxWidth.Small
+        });
+    }
+}
+
+<MudDialog @ref="modal_nuevo" TitleClass="dialog-title">
+    <DialogContent>
+        <MudForm @ref="form_nuevo">
+            <MudTextField Label="Nombre" Required @bind-Value="@nuevaCategoria" />
+        </MudForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton>
+            <MudButton Color="Color.Primary" StartIcon="@Icons.Material.Filled.Save" OnClick="@CrearCategoria">Guardar
+            </MudButton>
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    private async Task CrearCategoria()
+    {
+        await form_nuevo.ValidateAsync();
+        if (form_nuevo.IsValid)
+        {
+            var respuesta = await _Categorias.CrearCategoria(nuevaCategoria);
+            if (respuesta.exitoso)
+            {
+                await GetCategorias();
+                await modal_nuevo.CloseAsync();
+            }
+
+            _Snackbar.Add(respuesta.mensaje, respuesta.exitoso ? Severity.Success : Severity.Error);
+        }
+    }
+}
+
+<MudDataGrid Items="categorias" @ref="data_grid">
+    <ToolBarContent>
+        <MudText Typo="Typo.h6">Categorias</MudText>
+    </ToolBarContent>
+    <Columns>
+        <PropertyColumn Property="c => c.Id">Id</PropertyColumn>
+        <PropertyColumn Property="c => c.Nombre">Nombre</PropertyColumn>
+        <TemplateColumn>
+            <CellTemplate Context="x">
+                <MudStack AlignItems="AlignItems.End">
+                    <MudButton Color="Color.Warning" EndIcon="@Icons.Material.Filled.Delete"
+                               OnClick="() => EliminarCategoria(x.Item.Id)">Eliminar</MudButton>
+                </MudStack>
+            </CellTemplate>
+        </TemplateColumn>
+    </Columns>
+</MudDataGrid>
+
+@code {
+    async Task EliminarCategoria(int Id)
+    {
+        var respuesta = await _Dialogo.ShowMessageBoxAsync(title: "Eliminar Categoria", (MarkupString)"Deseas remover esta categoria del catalogo?", yesText: "Eliminar", cancelText: "Cancelar");
+
+        if (respuesta == true)
+        {
+            var mensajeDeRespuesta = await _Categorias.EliminarCategoria(Id);
+            await GetCategorias();
+            _Snackbar.Add(mensajeDeRespuesta.mensaje, mensajeDeRespuesta.exitoso ? Severity.Success : Severity.Error);
+        }
+    }
+}

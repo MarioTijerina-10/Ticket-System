@@ -6,20 +6,19 @@
 <MudSnackbarProvider />
 <MudLayout>
     <MudAppBar Elevation="1">
-        <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="@((e) => DrawerToggle())" />
-        <MudText Typo="Typo.h5" Class="ml-3">Application</MudText>
+        <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start"
+                       OnClick="@((e) => DrawerToggle())" />
+        <MudImage ObjectFit="ObjectFit.Cover" Src="/Images/burgosLogo.png" Height="40" />
+        <MudText Typo="Typo.h5" Class="ml-3">Cyr-Tickets</MudText>
         <MudSpacer />
-        <MudIconButton Icon="@(DarkLightModeButtonIcon)" Color="Color.Inherit" OnClick="@DarkModeToggle" />
-        <MudIconButton Icon="@Icons.Material.Filled.MoreVert" Color="Color.Inherit" Edge="Edge.End" />
     </MudAppBar>
     <MudDrawer id="nav-drawer" @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="2">
-        <NavMenu />
+        <NavMenu DrawerToggle="@DrawerToggle" />
     </MudDrawer>
-    <MudMainContent Class="pt-16 pa-4">
+    <MudMainContent Class="pt-20 pa-4">
         @Body
     </MudMainContent>
 </MudLayout>
-
 
 <div id="blazor-error-ui" data-nosnippet>
     An unhandled error has occurred.
@@ -28,7 +27,7 @@
 </div>
 
 @code {
-    private bool _drawerOpen = true;
+    private bool _drawerOpen = false;
     private bool _isDarkMode = true;
     private MudTheme? _theme = null;
 
@@ -66,7 +65,7 @@
 
     private readonly PaletteDark _darkPalette = new()
     {
-        Primary = "#7e6fff",
+        Primary = "#4a86ff",
         Surface = "#1e1e2d",
         Background = "#1a1a27",
         BackgroundGray = "#151521",
@@ -99,5 +98,3 @@
         false => Icons.Material.Outlined.DarkMode,
     };
 }
-
-

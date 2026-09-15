@@ -1,0 +1,41 @@
+@using System.ComponentModel.DataAnnotations
+@using Org.BouncyCastle.Asn1.Cms
+<MudSelect T="RangoDeTiempo" Label="Duracion" ValueChanged="ValueChanged" Value="Value" Clearable="true">
+    @foreach (RangoDeTiempo x in RangosDeTiempo)
+    {
+        @* Tiempos de inicio y final en el rango *@
+        double? Inicio = x.Inicio.TotalMinutes;
+        double? Final = x.Final?.TotalMinutes;
+        double? InicioEnHoras = x.Inicio.TotalHours;
+        double? FinalEnHoras = x.Final?.TotalHours;
+
+        @* Decidi el timpo de de texto desplagado en el select para cada rango de tiempo *@
+        <MudSelectItem Value="x">
+            @if (Inicio >= 60 && x.Final != null)
+            {
+                <text>@InicioEnHoras - @FinalEnHoras Horas</text>
+            }
+            else if (x.Final is null)
+            {
+                <text>@InicioEnHoras+ Horas</text>
+            }
+            else if (x.Final != null)
+            {
+                <text>@Inicio - @Final Minutos</text>
+            }
+            else
+            {
+                <text>@Inicio+ Minutos</text>
+            }
+        </MudSelectItem>
+    }
+</MudSelect>
+
+@code {
+    @* Funcion para cambiar el valor *@
+    [Parameter][Required] public EventCallback<RangoDeTiempo> ValueChanged { get; set; }
+    @* Rangos de Tiempos *@
+    [Parameter][Required] public List<RangoDeTiempo> RangosDeTiempo { get; set; } = new();
+    @* Valor seleccionado *@
+    [Parameter][Required] public RangoDeTiempo Value { get; set; } = new();
+}

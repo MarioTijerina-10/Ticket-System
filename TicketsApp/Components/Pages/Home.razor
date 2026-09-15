@@ -1,59 +1,317 @@
-﻿@page "/"
+﻿@page "/Inicio"
+@attribute [Authorize]
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using System.Text.Json;
+@using TicketsApp.DTO.Tickets
+@inject AuthenticationStateProvider _Auth
+@inject ServicioTickets _ServicioTickets
+@inject ServicioCamposEstaticos _ServicioDatos
+@inject IDialogService _ServicioDialogo
+@inject UserManager<Usuario> _UserManager
+@inject NavigationManager _Nav
 
-<PageTitle>Home</PageTitle>
+@code {
+    List<GetTickets> tickets = new();
+    int ticketsAbiertos = new();
+    int ticketsEnProceso = new();
+    int ticketsCerradosParcial = new();
+    int ticketsCerrados = new();
+    Usuario? usuario = new();
+    List<Usuario> analistas = new();
+    List<Usuario> analistasActivos = new();
+    List<Usuario> analistasConTickets = new();
+    int[] data_tiempos_tickets = { };
+    string[] leyendas_tiempos_tickets = { "0 - 15 Min", "16 - 30 Min", "31 - 60 Min", "60+ Min" };
+    int tickets_15min;
+    int tickets_30min;
+    int tickets_60min;
+    int tickets_60min_extra;
 
-<MudText Typo="Typo.h3" GutterBottom="true">Hello, world!</MudText>
-<MudText Class="mb-8">Welcome to your new app, powered by MudBlazor and the .NET 10 Template!</MudText>
+    DateRange rangoDeTiempo = new DateRange(
+            new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1), new DateTime(DateTime.Now.Year, DateTime.Now.Month,
+    1).AddMonths(1)
+        );
 
-<MudAlert Severity="Severity.Normal" ContentAlignment="HorizontalAlignment.Start">
-    You can find documentation and examples on our website here:
-    <MudLink Href="https://mudblazor.com" Target="_blank" Typo="Typo.body2" Color="Color.Primary">
-        <b>www.mudblazor.com</b>
+    private async Task UpdateDash(DateRange rango)
+    {
+        rangoDeTiempo = rango;
+        await GetAnalistas();
+        await GetTickets();
+
+        tickets_15min = tickets.Where(t => t.Duracion_Asignado_CierreParcial.HasValue &&
+t.Duracion_Asignado_CierreParcial.Value.TotalMinutes <= 15).Count();
+
+        tickets_30min = tickets.Where(t => t.Duracion_Asignado_CierreParcial.HasValue &&
+t.Duracion_Asignado_CierreParcial.Value.TotalMinutes <= 30 && t.Duracion_Asignado_CierreParcial.Value.TotalMinutes >
+15).Count();
+
+        tickets_60min = tickets.Where(t => t.Duracion_Asignado_CierreParcial.HasValue &&
+t.Duracion_Asignado_CierreParcial.Value.TotalMinutes <= 60 && t.Duracion_Asignado_CierreParcial.Value.TotalMinutes >
+30).Count();
+
+        tickets_60min_extra = tickets.Where(t => t.Duracion_Asignado_CierreParcial.HasValue &&
+t.Duracion_Asignado_CierreParcial.Value.TotalMinutes > 60).Count();
+
+        data_tiempos_tickets = new int[] { tickets_15min, tickets_30min, tickets_60min, tickets_60min_extra };
+
+        lista_leyendas_tickets_analista = new();
+        lista_tickets_analista = new();
+
+        foreach (var x in analistasConTickets)
+        {
+            lista_tickets_analista.Add(x.TicketFkAnalistaNavigations.Where(t => t.FechaInicio >= rangoDeTiempo.Start!.Value
+&& t.FechaInicio <= rangoDeTiempo.End!.Value).Count());
+            lista_leyendas_tickets_analista.Add(x.Nombre);
+        }
+
+        leyendas_tickets_analista = lista_leyendas_tickets_analista.ToArray();
+        data_tickets_analista.Data = lista_tickets_analista.ToArray();
+
+        ticketsAbiertos = tickets.Where(t => t.FkEstatus == 1).Count();
+        ticketsEnProceso = tickets.Where(t => t.FkEstatus == 2).Count();
+        ticketsCerradosParcial = tickets.Where(t => t.FkEstatus == 3).Count();
+        ticketsCerrados = tickets.Where(t => t.FkEstatus == 4).Count();
+
+        StateHasChanged();
+    }
+
+    private async Task GetTickets()
+    {
+        tickets = (await _ServicioTickets.GetAll()).data!;
+        tickets = tickets.Where(t => t.FechaInicio >= rangoDeTiempo.Start!.Value && t.FechaInicio <=
+        rangoDeTiempo.End!.Value).ToList();
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var EstadoAuth = await _Auth.GetAuthenticationStateAsync();
+        var EstadoUsuario = EstadoAuth.User;
+        usuario = await _UserManager.GetUserAsync(EstadoUsuario);
+
+        await GetAnalistas();
+        await UpdateDash(rangoDeTiempo);
+    }
+
+    @* Consigue analistas totales y analistas con tickets buscado *@
+
+    private async Task GetAnalistas()
+    {
+        analistas = (await _ServicioDatos.GetAnalistas()).data ?? analistas;
+        analistasActivos = (await _ServicioDatos.GetAnalistasActivos(analistas)).data ?? analistasActivos;
+        analistasConTickets = (await _ServicioDatos.GetAnalistasConTickets(analistas, rangoDeTiempo)).data ??
+analistasConTickets;
+    }
+}
+
+<MudText Typo="Typo.h3" Align="Align.Center" Class="mb-3">Dashboard General</MudText>
+
+<MudDivider />
+
+<MudDateRangePicker PickerVariant="PickerVariant.Dialog" DateRange="rangoDeTiempo" Margin="Margin.Dense"
+                    Class="mb-5 mt-5" DateRangeChanged="@UpdateDash" />
+
+<MudDivider />
+
+<MudText Typo="Typo.h5" Class="mt-5" Align="Align.Center">Tickets Pendientes</MudText>
+
+<MudStack Row Class="pt-5 d-flex mb-6"
+          Style="position: sticky; top: 64px; z-index: 1100; background-color: var(--mud-palette-background);">
+    <MudLink Href="/Tickets?estatus=1" Class="flex-1 hover-grow cursor-pointer no-outline">
+        <MudCard Elevation="4" Outlined="true">
+            <MudCardHeader>
+                <CardHeaderContent>
+                    <MudText Typo="Typo.h6">Abiertos</MudText>
+                </CardHeaderContent>
+            </MudCardHeader>
+            <MudCardContent>
+                <MudStack Row>
+                    <MudText Typo="Typo.h4">@ticketsAbiertos</MudText>
+                    <MudIcon Icon="@Icons.Material.Filled.Announcement" Size="Size.Large"></MudIcon>
+                </MudStack>
+            </MudCardContent>
+        </MudCard>
     </MudLink>
-</MudAlert>
 
-<br />
-<MudText Typo="Typo.h5" GutterBottom="true">Interactivity in this Template</MudText>
-<br />
-<MudText Typo="Typo.body2">
-    When you opt for the "Global" Interactivity Location, <br />
-    the render modes are defined in App.razor and consequently apply to all child components.<br />
-    In this case, providers are globally set in the MainLayout.<br />
-    <br />
-    On the other hand, if you choose the "Per page/component" Interactivity Location,<br />
-    it is necessary to include the <br />
-    <br />
-    &lt;MudPopoverProvider /&gt; <br />
-    &lt;MudDialogProvider /&gt; <br />
-    &lt;MudSnackbarProvider /&gt; <br />
-    <br />
-    components on every interactive page.<br />
-    <br />
-    If a render mode is not specified for a page, it defaults to Server-Side Rendering (SSR),<br />
-    similar to this page. While MudBlazor allows pages to be rendered in SSR,<br />
-    please note that interactive features, such as buttons and dropdown menus, will not be functional.
-</MudText>
-
-<br />
-<MudText Typo="Typo.h5" GutterBottom="true">What's New in Blazor with the Release of .NET 10</MudText>
-<br />
-
-<MudText Typo="Typo.h6" GutterBottom="true">Prerendering</MudText>
-<MudText Typo="Typo.body2" GutterBottom="true">
-    If you're exploring the features of .NET 10 Blazor,<br /> you might be pleasantly surprised to learn that each page is prerendered on the server,<br /> regardless of the selected render mode.<br /><br />
-    This means that you'll need to inject all necessary services on the server,<br /> even when opting for the wasm (WebAssembly) render mode.<br /><br />
-    This prerendering functionality is crucial to ensuring that WebAssembly mode feels fast and responsive,<br /> especially when it comes to initial page load times.<br /><br />
-    For more information on how to detect prerendering and leverage the RenderContext, you can refer to the following link:
-    <MudLink Href="https://github.com/dotnet/aspnetcore/issues/51468#issuecomment-1783568121" Target="_blank" Typo="Typo.body2" Color="Color.Primary">
-        More details
+    <MudLink Href="/Tickets?estatus=2" Class="flex-1 hover-grow cursor-pointer no-outline">
+        <MudCard Elevation="4" Outlined="true">
+            <MudCardHeader>
+                <CardHeaderContent>
+                    <MudText Typo="Typo.h6">En Proceso</MudText>
+                </CardHeaderContent>
+            </MudCardHeader>
+            <MudCardContent>
+                <MudStack Row>
+                    <MudText Typo="Typo.h4">@ticketsEnProceso</MudText>
+                    <MudIcon Icon="@Icons.Material.Filled.Build" Size="Size.Large"></MudIcon>
+                </MudStack>
+            </MudCardContent>
+        </MudCard>
     </MudLink>
-</MudText>
 
-<br />
-<MudText Typo="Typo.h6" GutterBottom="true">InteractiveAuto</MudText>
-<MudText Typo="Typo.body2">
-    A discussion on how to achieve this can be found here:
-    <MudLink Href="https://github.com/dotnet/aspnetcore/issues/51468#issue-1950424116" Target="_blank" Typo="Typo.body2" Color="Color.Primary">
-        More details
+    <MudLink Href="/Tickets?estatus=3" Class="flex-1 hover-grow cursor-pointer no-outline">
+        <MudCard Elevation="4" Outlined="true">
+            <MudCardHeader>
+                <CardHeaderContent>
+                    <MudText Typo="Typo.h6">Cerrados Por Tecnico</MudText>
+                </CardHeaderContent>
+            </MudCardHeader>
+            <MudCardContent>
+                <MudStack Row>
+                    <MudText Typo="Typo.h4">@ticketsCerradosParcial</MudText>
+                    <MudIcon Icon="@Icons.Material.Filled.AssignmentInd" Size="Size.Large"></MudIcon>
+                </MudStack>
+            </MudCardContent>
+        </MudCard>
     </MudLink>
-</MudText>
+
+    <MudLink Href="/Tickets?estatus=4" Class="flex-1 hover-grow cursor-pointer no-outline">
+        <MudCard Elevation="4" Outlined="true">
+            <MudCardHeader>
+                <CardHeaderContent>
+                    <MudText Typo="Typo.h6">Cerrados</MudText>
+                </CardHeaderContent>
+            </MudCardHeader>
+            <MudCardContent>
+                <MudStack Row>
+                    <MudText Typo="Typo.h4">@ticketsCerrados</MudText>
+                    <MudIcon Icon="@Icons.Material.Filled.Check" Size="Size.Large"></MudIcon>
+                </MudStack>
+            </MudCardContent>
+        </MudCard>
+    </MudLink>
+</MudStack>
+
+<MudDivider />
+
+<MudText Typo="Typo.h5" Class="mt-6" Align="Align.Center">Rendimiento por Tecnico</MudText>
+
+<MudStack Row Class="mt-5 mb-5 d-flex flex-wrap justify-content-center align-items-center"
+          AlignItems="AlignItems.Center" Justify="Justify.Center">
+    @foreach (var x in analistasConTickets)
+    {
+        <MudCard Elevation="6" Outlined="true" Class="carta-analista card-header-title">
+            <MudCardHeader Class="carta-analista-encabezado">
+                <CardHeaderContent>
+                    <MudText Typo="Typo.subtitle1">
+                        @x.Nombre
+                    </MudText>
+                </CardHeaderContent>
+            </MudCardHeader>
+            <MudDivider />
+            <MudCardContent>
+                <MudStack>
+                    <MudText Typo="Typo.body2">
+                        Tickets En Proceso:
+                        @x.TicketFkAnalistaNavigations.Where(t => t.FkEstatus == 2 && t.FechaInicio >=
+                   rangoDeTiempo.Start!.Value && t.FechaInicio <= rangoDeTiempo.End!.Value).Count()</MudText>
+                        <MudText Typo="Typo.body2">
+                            Tickets Cerrados Parcialmente:
+                            @x.TicketFkAnalistaNavigations.Where(t => t.FkEstatus == 3 && t.FechaInicio >=
+                    rangoDeTiempo.Start!.Value && t.FechaInicio <= rangoDeTiempo.End!.Value).Count()
+                        </MudText>
+                        <MudText Typo="Typo.body2">Tickets Cerrados:
+                            @x.TicketFkAnalistaNavigations.Where(t => t.FkEstatus == 4 && t.FechaInicio >=
+                    rangoDeTiempo.Start!.Value && t.FechaInicio <= rangoDeTiempo.End!.Value).Count()
+                        </MudText>
+                        <MudText Typo="Typo.body2">Tickets Totales:
+                            @x.TicketFkAnalistaNavigations.Where(t => t.FkEstatus != 1 && t.FechaInicio >=
+                    rangoDeTiempo.Start!.Value && t.FechaInicio <= rangoDeTiempo.End!.Value).Count()
+                        </MudText>
+
+                        <MudDivider />
+
+                        <MudText Typo="Typo.subtitle1" Color="Color.Warning">Promedios de Tiempo</MudText>
+                        <MudText Typo="Typo.body2">
+                            Tiempo de Asignacion:
+                            @if (x.TiempoDeRespuesta_Promedio(rangoDeTiempo.Start.Value, rangoDeTiempo.End.Value) == null)
+                            {
+                                <text>N/a</text>
+                            }
+                            else
+                            {
+                                <text>@x.TiempoDeRespuesta_Promedio(rangoDeTiempo.Start.Value, rangoDeTiempo.End.Value) </text>
+                            }
+                        </MudText>
+                        <MudText Typo="Typo.body2">
+                            Tiempo de Cierre:
+                            @if (x.TiempoDeCierre_Promedio(rangoDeTiempo.Start.Value, rangoDeTiempo.End.Value) == null)
+                            {
+                                <text>N/a</text>
+                            }
+                            else
+                            {
+                                <text>@x.TiempoDeCierre_Promedio(rangoDeTiempo.Start.Value, rangoDeTiempo.End.Value)</text>
+                            }
+                        </MudText>
+                        <MudText Typo="Typo.body2">
+                            Tiempo Total:
+                            @if (x.TiempoTotal_Promedio(rangoDeTiempo.Start.Value, rangoDeTiempo.End.Value) == null)
+                            {
+                                <text>N/a</text>
+                            }
+                            else
+                            {
+                                <text>@x.TiempoTotal_Promedio(rangoDeTiempo.Start.Value, rangoDeTiempo.End.Value)</text>
+                            }
+                        </MudText>
+                    </MudStack>
+                </MudCardContent>
+            </MudCard>
+        }
+
+    </MudStack>
+
+    <MudDivider />
+
+    <MudText Typo="Typo.h5" Class="mt-5" Align="Align.Center">Tickets Por Tiempo de respuesta</MudText>
+
+    <MudStack AlignItems="AlignItems.Center">
+        <MudPaper Class="pa-8 mt-8 mb-6">
+            <MudChart ChartType="ChartType.Pie" ChartSeries="@data_tiempos_tickets.AsChartDataSet()"
+                      ChartLabels="@leyendas_tiempos_tickets" Width="25vw" ChartOptions="pieChartOpt" />
+        </MudPaper>
+    </MudStack>
+
+<MudDivider />
+
+    <MudDivider />
+
+    <MudText Typo="Typo.h5" Class="mt-5" Align="Align.Center">Tickets Cerrados por Analista</MudText>
+
+@code {
+    PieChartOptions pieChartOpt = new PieChartOptions()
+    {
+        ShowLegend = true,
+        ChartPalette = new string[]{
+            "#0091ae",
+            "#00a885",
+            "#77b130",
+            "#f39c05"
+        },
+        ShowValues = true
+    };
+}
+
+<MudStack AlignItems="AlignItems.Center">
+    <MudPaper Class="pa-8 mt-8 mb-6">
+        <MudChart ChartType="ChartType.Bar" ChartSeries="@data_tickets_analista.AsList()"
+                  ChartLabels="@leyendas_tickets_analista" Width="45vw" ChartOptions="barChartOpt">
+        </MudChart>
+    </MudPaper>
+</MudStack>
+
+@code {
+    List<int> lista_tickets_analista = new();
+    List<string>? lista_leyendas_tickets_analista = new();
+    ChartSeries<int> data_tickets_analista = new();
+    string[]? leyendas_tickets_analista = { };
+    BarChartOptions barChartOpt = new BarChartOptions()
+    {
+        XAxisTitle = "Analistas",
+        YAxisTitle = "Tickets",
+        ShowLegend = false,
+        XAxisLabelRotation = 12,
+        ShowValues = true
+    };
+}

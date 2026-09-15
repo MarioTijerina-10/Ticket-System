@@ -1,162 +1,209 @@
-using System;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using TicketsApp.DTO;
 using TicketsApp.DTO.Usuarios;
-using TicketsApp.Helper_Classes;
-using TicketsApp.Interfaces;
 
 namespace TicketsApp.Services;
 
-//Servicio para traer datos de usuarios de la base de datos.
-//Utiliza la clase base de ServicioBase
-public class ServicioUsuarios : ServicioBase
+// Servicio para traer datos de usuarios de la base de datos.
+// Utiliza la clase base de ServicioBase
+public class ServicioUsuarios : ServicioBase<ServicioUsuarios>
 {
     private readonly UserManager<Usuario> userManager;
     private readonly RoleManager<IdentityRole> rolManager;
-    public ServicioUsuarios(IDbContextFactory<TicketsDbContext> fabrica, UserManager<Usuario> _userManager, RoleManager<IdentityRole> _rolManager) : base(fabrica)
+
+    public ServicioUsuarios(
+        IDbContextFactory<TicketsDbContext> fabrica,
+        UserManager<Usuario> userManager,
+        RoleManager<IdentityRole> rolManager,
+        ILogger<ServicioUsuarios> log)
+        : base(fabrica, log)
     {
-        userManager = _userManager;
-        rolManager = _rolManager;
+        this.userManager = userManager;
+        this.rolManager = rolManager;
     }
 
     public async Task<MensajeDeRespuesta<List<GetUsuario>>> GetAll()
     {
-        var respuesta = await userManager.Users.Where(u => u.Activo == true).ToListAsync();
-        List<GetUsuario> usuarios = new();
+        return await EjecutarServicio(
+            async () =>
+            {
+                var respuesta = await userManager.Users
+                    .Include(u => u.FkDepartamentoNavigation)
+                    .Include(u => u.FkUnidadNavigation)
+                    .Where(u => u.Activo)
+                    .AsNoTracking()
+                    .ToListAsync();
 
-        foreach (var x in respuesta)
-        {
-            GetUsuario usuario = new();
+                List<GetUsuario> usuarios = new();
 
-            usuario.Contraseña = x.PasswordHash!;
-            usuario.Correo = x.Email;
-            usuario.Usuario = x.UserName!;
-            usuario.Id = x.Id;
-            usuario.Nombre = x.Nombre;
-            usuario.Unidad = (Enumerables.Unidades)x.FkUnidad;
-            usuario.Rol = await userManager.GetRolesAsync(x);
+                foreach (var x in respuesta)
+                {
+                    usuarios.Add(new GetUsuario
+                    {
+                        Id = x.Id,
+                        Nombre = x.Nombre,
+                        Usuario = x.UserName!,
+                        Correo = x.Email,
+                        Contraseña = x.PasswordHash!,
+                        ContraseñaVisible = x.ContraseñaVisible,
+                        Departamento = x.FkDepartamentoNavigation.Nombre,
+                        FkDepartamento = x.FkDepartamento,
+                        Unidad = x.FkUnidadNavigation.Nombre,
+                        FkUnidad = x.FkUnidad,
+                        Rol = await userManager.GetRolesAsync(x)
+                    });
+                }
 
-            usuarios.Add(usuario);
-        }
-
-        return new MensajeDeRespuesta<List<GetUsuario>>
-        {
-            exitoso = true,
-            data = usuarios,
-            mensaje = "Los usuarios fueron extraidos correctamente"
-        };
+                return usuarios;
+            },
+            mensajeDeExito: "Los usuarios fueron extraídos correctamente",
+            mensajeDeError: "Hubo un error al extraer los usuarios");
     }
 
     public async Task<MensajeDeRespuesta<GetUsuario>> GetOne(string id)
     {
-        var respuesta = await userManager.Users.FirstOrDefaultAsync(u => u.Id == id);
-        if (respuesta == null)
-        {
-            return new MensajeDeRespuesta<GetUsuario>
+        return await EjecutarServicio(
+            async () =>
             {
-                exitoso = false,
-                mensaje = "No se encontro ningun usuario."
-            };
-        }
+                var respuesta = await userManager.Users
+                    .Include(u => u.FkDepartamentoNavigation)
+                    .Include(u => u.FkUnidadNavigation)
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(u => u.Id == id);
 
-        GetUsuario usuario = new();
+                if (respuesta is null)
+                    throw new InvalidOperationException("No se encontró ningún usuario");
 
-        usuario.Contraseña = respuesta.PasswordHash!;
-        usuario.Correo = respuesta.Email;
-        usuario.Nombre = respuesta.Nombre;
-        usuario.Unidad = (Enumerables.Unidades)respuesta.FkUnidad;
-        usuario.Rol = await userManager.GetRolesAsync(respuesta);
-
-        return new MensajeDeRespuesta<GetUsuario>
-        {
-            exitoso = true,
-            data = usuario,
-            mensaje = "El usuario fue extraido exitosamente."
-        };
+                return new GetUsuario
+                {
+                    Id = respuesta.Id,
+                    Nombre = respuesta.Nombre,
+                    Usuario = respuesta.UserName!,
+                    Correo = respuesta.Email,
+                    Contraseña = respuesta.PasswordHash!,
+                    ContraseñaVisible = respuesta.ContraseñaVisible,
+                    Departamento = respuesta.FkDepartamentoNavigation.Nombre,
+                    FkDepartamento = respuesta.FkDepartamento,
+                    Unidad = respuesta.FkUnidadNavigation.Nombre,
+                    FkUnidad = respuesta.FkUnidad,
+                    Rol = await userManager.GetRolesAsync(respuesta)
+                };
+            },
+            mensajeDeExito: "El usuario fue extraído exitosamente",
+            mensajeDeError: "No se encontró ningún usuario");
     }
 
-    public async Task<MensajeDeRespuesta> CreateUsuario(CreateUsuario datos)
+    public async Task<MensajeDeRespuesta<string>> CrearUsuario(CreateUsuario datos)
     {
-        try
-        {
-            Usuario usuario = new();
-            usuario.Email = datos.Correo;
-            usuario.UserName = datos.Usuario1;
-            usuario.FkUnidad = datos.FkUnidad;
-            usuario.Nombre = datos.Nombre;
+        return await EjecutarServicio(
+            async () =>
+            {
+                var usuario = new Usuario
+                {
+                    Email = datos.Correo,
+                    ContraseñaVisible = datos.Contraseña,
+                    UserName = datos.Usuario1,
+                    FkUnidad = datos.FkUnidad,
+                    FkDepartamento = datos.FkDepartamento,
+                    Nombre = datos.Nombre
+                };
 
-            Console.WriteLine(usuario);
-            var resultado = await userManager.CreateAsync(usuario, datos.Contraseña);
-            if (resultado.Succeeded)
+                var resultado = await userManager.CreateAsync(usuario, datos.Contraseña);
+
+                if (!resultado.Succeeded)
+                {
+                    var errores = string.Join("; ", resultado.Errors.Select(e => e.Description));
+                    throw new InvalidOperationException(errores);
+                }
+
                 await userManager.AddToRoleAsync(usuario, datos.Rol);
 
-            return new MensajeDeRespuesta
-            {
-                exitoso = true,
-                mensaje = "El usaurio fue creado correctamente"
-            };
-        }
-        catch (Exception ex)
-        {
-            return new MensajeDeRespuesta
-            {
-                exitoso = false,
-                mensaje = "Hubo un fallo al cargar el usuario: " + ex
-            };
-        }
+                return usuario.Id;
+            },
+            mensajeDeExito: "El usuario fue creado correctamente",
+            mensajeDeError: "Hubo un fallo al crear el usuario");
     }
 
-    public async Task<MensajeDeRespuesta> UpdateUsuario(UpdateUsuario datos, string id)
+    public async Task<MensajeDeRespuesta<bool>> UpdateUsuario(UpdateUsuario datos, string id)
     {
-        var usuario = await userManager.Users.FirstOrDefaultAsync(u => u.Id == id);
-        if (usuario == null)
-        {
-            return new MensajeDeRespuesta<GetUsuario>
+        return await EjecutarServicio(
+            async () =>
             {
-                exitoso = false,
-                mensaje = "No se encontro ningun usuario."
-            };
-        }
+                var usuario = await userManager.Users.FirstOrDefaultAsync(u => u.Id == id);
+                if (usuario is null)
+                    throw new InvalidOperationException("No se encontró ningún usuario");
 
-        usuario.Email = datos.Correo;
-        usuario.UserName = datos.Usuario1;
-        usuario.FkUnidad = datos.FkUnidad;
-        usuario.Nombre = datos.Nombre;
-        await userManager.UpdateAsync(usuario);
+                usuario.Email = datos.Correo;
+                usuario.ContraseñaVisible = datos.Contraseña;
+                usuario.UserName = datos.Usuario1;
+                usuario.FkUnidad = datos.FkUnidad;
+                usuario.FkDepartamento = datos.FkDepartamento;
+                usuario.Nombre = datos.Nombre;
 
-        var rolActual = await userManager.GetRolesAsync(usuario);
-        await userManager.RemoveFromRolesAsync(usuario, rolActual);
-        await userManager.AddToRoleAsync(usuario, datos.Rol);
-        await userManager.ChangePasswordAsync(usuario, usuario.PasswordHash!, datos.Contraseña);
+                var updateResult = await userManager.UpdateAsync(usuario);
+                if (!updateResult.Succeeded)
+                    throw new InvalidOperationException(string.Join("; ", updateResult.Errors.Select(e => e.Description)));
 
-        return new MensajeDeRespuesta
-        {
-            exitoso = true,
-            mensaje = "El usuario fue actualzado correctamente"
-        };
+                var rolesActuales = await userManager.GetRolesAsync(usuario);
+                await userManager.RemoveFromRolesAsync(usuario, rolesActuales);
+                await userManager.AddToRoleAsync(usuario, datos.Rol);
+
+                if (!string.IsNullOrEmpty(datos.Contraseña))
+                {
+                    await userManager.RemovePasswordAsync(usuario);
+                    var passResult = await userManager.AddPasswordAsync(usuario, datos.Contraseña);
+                    if (!passResult.Succeeded)
+                        throw new InvalidOperationException(string.Join("; ", passResult.Errors.Select(e => e.Description)));
+                }
+
+                return true;
+            },
+            mensajeDeExito: "El usuario fue editado correctamente",
+            mensajeDeError: "Hubo un error al intentar actualizar el usuario");
     }
 
-    public async Task<MensajeDeRespuesta> DeleteUsuario(string id)
+    public async Task<MensajeDeRespuesta<bool>> DeleteUsuario(string id)
     {
-
-        var usuario = await userManager.Users.FirstOrDefaultAsync(u => u.Id == id);
-
-        if (usuario == null)
-        {
-            return new MensajeDeRespuesta<GetUsuario>
+        return await EjecutarServicio(
+            async () =>
             {
-                exitoso = false,
-                mensaje = "No se encontro ningun usuario."
-            };
-        }
+                var usuario = await userManager.Users.FirstOrDefaultAsync(u => u.Id == id);
+                if (usuario is null)
+                    throw new InvalidOperationException("No se encontró ningún usuario");
 
-        usuario.Activo = false;
-        await userManager.UpdateAsync(usuario);
+                usuario.Activo = false;
+                await userManager.UpdateAsync(usuario);
 
-        return new MensajeDeRespuesta
-        {
-            exitoso = true,
-            mensaje = "El usuario fue eliminado correctamente"
-        };
+                return true;
+            },
+            mensajeDeExito: "El usuario fue eliminado correctamente",
+            mensajeDeError: "Hubo un error al intentar eliminar el usuario");
+    }
+
+    public async Task<MensajeDeRespuesta<List<GetUsuario>>> FiltrarUsuarios(
+        FiltroDeUsuarios filtrado, List<GetUsuario> usuarios)
+    {
+        return await EjecutarServicio(
+            () =>
+            {
+                IEnumerable<GetUsuario> query = usuarios;
+
+                if (!string.IsNullOrEmpty(filtrado.Nombre))
+                    query = query.Where(u => u.Nombre.Contains(filtrado.Nombre, StringComparison.OrdinalIgnoreCase));
+
+                if (!string.IsNullOrEmpty(filtrado.Rol))
+                    query = query.Where(u => u.Rol.Contains(filtrado.Rol));
+
+                if (filtrado.FkDepartamento != null)
+                    query = query.Where(u => u.FkDepartamento == filtrado.FkDepartamento);
+
+                if (filtrado.FkUnidad != null)
+                    query = query.Where(u => u.FkUnidad == filtrado.FkUnidad);
+
+                return Task.FromResult(query.ToList());
+            },
+            mensajeDeExito: "Datos extraídos correctamente",
+            mensajeDeError: "Hubo un error al intentar filtrar los usuarios");
     }
 }
