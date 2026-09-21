@@ -32,4 +32,3 @@ volumes:
 networks:
   blazor-net:
     driver: bridge
-
