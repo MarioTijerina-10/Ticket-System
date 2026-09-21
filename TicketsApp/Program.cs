@@ -1,20 +1,9 @@
-using System.Text;
-using Microsoft.Extensions.Caching.Memory;
-using Microsoft.IdentityModel.Tokens;
 using MudBlazor.Services;
 using MudBlazor.Translations;
 using TicketsApp.Components;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
-using TicketsApp.Servicio;
-using Microsoft.Extensions.Options;
-using System.Reflection.Emit;
-using TicketsApp.Models;
-using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using Microsoft.AspNetCore.Components;
 using TicketsApp.Servicios;
-using DocumentFormat.OpenXml.VariantTypes;
-using System.Text.Json.Serialization;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -100,7 +89,6 @@ var app = builder.Build();
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error", createScopeForErrors: true);
-    // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
     app.UseHsts();
 }
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
@@ -111,8 +99,47 @@ app.UseAuthorization();
 
 using (var scope = app.Services.CreateAsyncScope())
 {
-    var services = scope.ServiceProvider;
-    await SeedRoles(scope.ServiceProvider);
+    try
+    {
+        // añades los roles al iniciar la app
+        var services = scope.ServiceProvider;
+        await SeedRoles(scope.ServiceProvider);
+
+        //Corre migraciones a la base de datos al correr la aplicacion.
+        var adminUser = Environment.GetEnvironmentVariable("ADMIN_USER");
+        var adminContraseña = Environment.GetEnvironmentVariable("ADMIN_PASSWORD");
+
+        if (adminContraseña != null && adminUser != null)
+        {
+            var db = scope.ServiceProvider.GetRequiredService<TicketsDbContext>();
+            await db.Database.MigrateAsync();
+            var userManager = scope.ServiceProvider.GetRequiredService<UserManager<Usuario>>();
+            var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+
+            var servicioDepartamentos = scope.ServiceProvider.GetRequiredService<ServicioDepartamentos>();
+            var servicioUnidades = scope.ServiceProvider.GetRequiredService<ServicioUnidades>();
+            var adminUserFkDepartamento = (await servicioDepartamentos.GetPrimerFk()).data;
+            var adminUserFkUnidad = (await servicioUnidades.GetPrimerFk()).data;
+
+            var admin = new Usuario()
+            {
+                Nombre = "Administrador",
+                UserName = adminUser,
+                ContraseñaVisible = adminContraseña,
+                FkDepartamento = adminUserFkDepartamento,
+                FkUnidad = adminUserFkUnidad
+            };
+
+            await userManager.CreateAsync(admin, adminContraseña);
+            await userManager.AddToRoleAsync(admin, "Admin");
+        }
+
+        Console.WriteLine("Usuarios SuperAdmin Fue creado correctamente");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Usuarios SuperAdmin Tuvo un error al intentar crearse: {ex.Message}, {ex.InnerException}");
+    }
 }
 
 app.UseAntiforgery();

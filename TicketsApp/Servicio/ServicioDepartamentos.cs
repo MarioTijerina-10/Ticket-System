@@ -68,4 +68,17 @@ public class ServicioDepartamentos : ServicioBase<ServicioDepartamentos>
             mensajeDeExito: "El departamento se eliminó correctamente",
             mensajeDeError: "Hubo un error al intentar eliminar el departamento");
     }
+
+    public async Task<MensajeDeRespuesta<int>> GetPrimerFk()
+    {
+        return await EjecutarServicio(
+            async () =>
+            {
+                await using var contexto = await fabrica.CreateDbContextAsync();
+                return (await contexto.Departamentos.FirstAsync()).Id;
+            },
+            mensajeDeExito: "El departamento se extrajo el Id correctamente",
+            mensajeDeError: "Hubo un error al intentar extraer el Id del departamento"
+        );
+    }
 }

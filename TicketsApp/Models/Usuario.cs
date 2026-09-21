@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.ComponentModel.DataAnnotations.Schema;
-using Microsoft.AspNetCore.Identity;
+﻿using Microsoft.AspNetCore.Identity;
 
 namespace TicketsApp.Models;
 
@@ -10,7 +6,7 @@ public partial class Usuario : IdentityUser
 {
     public string Nombre { get; set; } = null!;
 
-    public string ContraseñaVisible { get; set; } = null!;
+    public string? ContraseñaVisible { get; set; } = null!;
 
     public int FkUnidad { get; set; }
 

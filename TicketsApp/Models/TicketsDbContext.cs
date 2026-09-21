@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
+using DocumentFormat.OpenXml.Drawing.Charts;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using Microsoft.Data.SqlClient;
 
 namespace TicketsApp.Models;
 
@@ -30,9 +32,20 @@ public partial class TicketsDbContext : IdentityDbContext<Usuario, IdentityRole,
 
     public virtual DbSet<Departamento> Departamentos { get; set; }
 
+
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-#warning To protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see https://go.microsoft.com/fwlink/?LinkId=723263.
-        => optionsBuilder.UseSqlServer("Server=DESKTOP-NQRK101\\MSSQLSERVER01;Database=TicketsDB;Trusted_Connection=True;TrustServerCertificate=True;");
+    {
+        var cs = new SqlConnectionStringBuilder()
+        {
+            DataSource = Environment.GetEnvironmentVariable("DB_SERVER"),
+            InitialCatalog = Environment.GetEnvironmentVariable("DB_NAME"),
+            UserID = Environment.GetEnvironmentVariable("DB_USER"),
+            Password = Environment.GetEnvironmentVariable("DB_PASSWORD"),
+            TrustServerCertificate = true
+        };
+
+        optionsBuilder.UseSqlServer(cs.ConnectionString);
+    }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -190,28 +203,7 @@ public partial class TicketsDbContext : IdentityDbContext<Usuario, IdentityRole,
             entity.HasData(
                 new Unidad()
                 {
-                    Id = 1,
                     Nombre = "Cyrburgos"
-                },
-                new Unidad()
-                {
-                    Id = 2,
-                    Nombre = "BDF"
-                },
-                new Unidad()
-                {
-                    Id = 3,
-                    Nombre = "DPC"
-                },
-                new Unidad()
-                {
-                    Id = 4,
-                    Nombre = "Energy Point"
-                },
-                new Unidad()
-                {
-                    Id = 5,
-                    Nombre = "Orga"
                 }
             );
         });
@@ -240,6 +232,13 @@ public partial class TicketsDbContext : IdentityDbContext<Usuario, IdentityRole,
             entity.Property(e => e.Activo).HasColumnName("activo");
 
             entity.HasOne(d => d.FkCategoriaNavigation).WithMany(d => d.Proveedores).HasForeignKey(d => d.FkCategoria);
+            entity.HasData(
+                new Departamento()
+                {
+                    Nombre = "Sistemas",
+                    Activo = true
+                }
+            );
         });
 
         modelBuilder.Entity<ComentarioTicket>(entity =>

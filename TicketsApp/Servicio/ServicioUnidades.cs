@@ -60,4 +60,17 @@ public class ServicioUnidades : ServicioBase<ServicioUnidades>
             mensajeDeExito: "La unidad se eliminó correctamente",
             mensajeDeError: "Hubo un error al intentar eliminar la unidad");
     }
+
+    public async Task<MensajeDeRespuesta<int>> GetPrimerFk()
+    {
+        return await EjecutarServicio(
+            async () =>
+            {
+                await using var contexto = await fabrica.CreateDbContextAsync();
+                return (await contexto.Unidades.FirstAsync()).Id;
+            },
+            mensajeDeExito: "El departamento se extrajo el Id correctamente",
+            mensajeDeError: "Hubo un error al intentar extraer el Id del departamento"
+        );
+    }
 }
