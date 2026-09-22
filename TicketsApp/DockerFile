@@ -11,4 +11,5 @@ WORKDIR /app
 EXPOSE 80
 EXPOSE 443
 COPY --from=build /app/publish .
+ENV ASPNETCORE_HTTP_PORTS=80
 ENTRYPOINT ["dotnet", "TicketsApp.dll"]
