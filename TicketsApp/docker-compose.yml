@@ -23,7 +23,7 @@ services:
   blazor-app:
     build:
       context: ./TicketsApp
-      dockerfile: ./TicketsApp/DockerFile
+      dockerfile: DockerFile
     container_name: blazor_app
     ports: 
       - "8081:80"
