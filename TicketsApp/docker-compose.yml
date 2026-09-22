@@ -15,7 +15,7 @@ services:
     networks: 
       - blazor-net
     healthcheck: 
-      test: /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "f3S%k7*Jav8K71bU35D3" -C -Q "SELECT 1" || exit 1
+      test: /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "${DB_PASSWORD}" -C -Q "SELECT 1" || exit 1
       interval: 10s
       timeout: 5s
       retries: 10
@@ -28,7 +28,8 @@ services:
     ports: 
       - "8081:80"
     depends_on:
-      - sqlserver_db
+      sqlserver_db:
+        condition: service_healthy
     networks:
       - blazor-net
     environment:
