@@ -4,6 +4,7 @@ using TicketsApp.Components;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Components;
 using TicketsApp.Servicios;
+using Microsoft.Data.SqlClient;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -30,7 +31,18 @@ builder.Services.AddMudServices(config =>
     config.SnackbarConfiguration.VisibleStateDuration = 3000;
 });
 builder.Services.AddMudTranslations();
-builder.Services.AddDbContextFactory<TicketsDbContext>(options => options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+var cs = new SqlConnectionStringBuilder()
+{
+    DataSource = Environment.GetEnvironmentVariable("DB_SERVER"),
+    InitialCatalog = Environment.GetEnvironmentVariable("DB_NAME"),
+    UserID = Environment.GetEnvironmentVariable("DB_USER"),
+    Password = Environment.GetEnvironmentVariable("DB_PASSWORD"),
+    TrustServerCertificate = true
+};
+
+builder.Services.AddDbContextFactory<TicketsDbContext>(options => options.UseSqlServer(cs.ConnectionString));
+
 builder.Services.AddDefaultIdentity<Usuario>(opc =>
 {
     opc.SignIn.RequireConfirmedAccount = false;
@@ -127,7 +139,7 @@ using (var scope = app.Services.CreateAsyncScope())
                 UserName = adminUser,
                 ContraseñaVisible = adminContraseña,
                 FkDepartamento = adminUserFkDepartamento,
-                FkUnidad = adminUserFkUnidad
+                FkUnidad = adminUserFkUnidad,
             };
 
             await userManager.CreateAsync(admin, adminContraseña);
