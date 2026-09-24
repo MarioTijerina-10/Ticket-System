@@ -113,6 +113,9 @@ using (var scope = app.Services.CreateAsyncScope())
 {
     try
     {
+        var db = scope.ServiceProvider.GetRequiredService<TicketsDbContext>();
+        await db.Database.MigrateAsync();
+
         // añades los roles al iniciar la app
         var services = scope.ServiceProvider;
         await SeedRoles(scope.ServiceProvider);
@@ -125,8 +128,6 @@ using (var scope = app.Services.CreateAsyncScope())
 
         if (adminContraseña != null && adminUser != null)
         {
-            var db = scope.ServiceProvider.GetRequiredService<TicketsDbContext>();
-            await db.Database.MigrateAsync();
             var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
 
             var servicioDepartamentos = scope.ServiceProvider.GetRequiredService<ServicioDepartamentos>();
