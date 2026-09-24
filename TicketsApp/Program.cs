@@ -121,11 +121,12 @@ using (var scope = app.Services.CreateAsyncScope())
         var adminUser = Environment.GetEnvironmentVariable("ADMIN_USER");
         var adminContraseña = Environment.GetEnvironmentVariable("ADMIN_PASSWORD");
 
+        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<Usuario>>();
+
         if (adminContraseña != null && adminUser != null)
         {
             var db = scope.ServiceProvider.GetRequiredService<TicketsDbContext>();
             await db.Database.MigrateAsync();
-            var userManager = scope.ServiceProvider.GetRequiredService<UserManager<Usuario>>();
             var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
 
             var servicioDepartamentos = scope.ServiceProvider.GetRequiredService<ServicioDepartamentos>();

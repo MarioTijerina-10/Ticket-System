@@ -232,13 +232,6 @@ public partial class TicketsDbContext : IdentityDbContext<Usuario, IdentityRole,
             entity.Property(e => e.Activo).HasColumnName("activo");
 
             entity.HasOne(d => d.FkCategoriaNavigation).WithMany(d => d.Proveedores).HasForeignKey(d => d.FkCategoria);
-            entity.HasData(
-                new Departamento()
-                {
-                    Nombre = "Sistemas",
-                    Activo = true
-                }
-            );
         });
 
         modelBuilder.Entity<ComentarioTicket>(entity =>
@@ -258,6 +251,14 @@ public partial class TicketsDbContext : IdentityDbContext<Usuario, IdentityRole,
             entity.Property(e => e.Id).HasColumnName("id");
             entity.Property(e => e.Nombre).HasColumnName("nombre");
             entity.Property(e => e.Activo).HasColumnName("activo");
+
+            entity.HasData(
+                new Departamento()
+                {
+                    Nombre = "Sistemas",
+                    Activo = true
+                }
+            );
         });
 
         OnModelCreatingPartial(modelBuilder);
