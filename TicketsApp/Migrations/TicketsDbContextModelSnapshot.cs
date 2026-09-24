@@ -271,6 +271,14 @@ namespace TicketsApp.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Departamentos");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            Activo = true,
+                            Nombre = "Sistemas"
+                        });
                 });
 
             modelBuilder.Entity("TicketsApp.Models.Estatus", b =>
@@ -510,30 +518,6 @@ namespace TicketsApp.Migrations
                             Id = 1,
                             Activo = true,
                             Nombre = "Cyrburgos"
-                        },
-                        new
-                        {
-                            Id = 2,
-                            Activo = true,
-                            Nombre = "BDF"
-                        },
-                        new
-                        {
-                            Id = 3,
-                            Activo = true,
-                            Nombre = "DPC"
-                        },
-                        new
-                        {
-                            Id = 4,
-                            Activo = true,
-                            Nombre = "Energy Point"
-                        },
-                        new
-                        {
-                            Id = 5,
-                            Activo = true,
-                            Nombre = "Orga"
                         });
                 });
 
@@ -554,7 +538,6 @@ namespace TicketsApp.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("ContraseñaVisible")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)")
                         .HasColumnName("contraseña_visible");
 
