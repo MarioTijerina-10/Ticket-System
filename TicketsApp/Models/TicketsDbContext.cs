@@ -203,6 +203,7 @@ public partial class TicketsDbContext : IdentityDbContext<Usuario, IdentityRole,
             entity.HasData(
                 new Unidad()
                 {
+                    Id = 1,
                     Nombre = "Cyrburgos"
                 }
             );
