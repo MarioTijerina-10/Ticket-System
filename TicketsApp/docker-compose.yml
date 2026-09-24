@@ -4,28 +4,28 @@ services:
   sqlserver_db:
     image: mcr.microsoft.com/mssql/server:2022-latest
     container_name: sqlserver_db
-    environment:  
+    environment:
       - ACCEPT_EULA=Y
       - SA_PASSWORD=${DB_PASSWORD}
       - MSSQL_PID=Developer
-    ports: 
+    ports:
       - "1433:1433"
-    volumes:  
+    volumes:
       - sqlserver-data:/var/opt/mssql
-    networks: 
+    networks:
       - blazor-net
-    healthcheck: 
+    healthcheck:
       test: /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "${DB_PASSWORD}" -C -Q "SELECT 1" || exit 1
       interval: 10s
       timeout: 5s
       retries: 10
-      
+
   blazor-app:
     build:
-      context: ./TicketsApp
+      context: ./
       dockerfile: DockerFile
     container_name: blazor_app
-    ports: 
+    ports:
       - "8081:80"
     depends_on:
       sqlserver_db:
