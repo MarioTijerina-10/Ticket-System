@@ -255,6 +255,7 @@ public partial class TicketsDbContext : IdentityDbContext<Usuario, IdentityRole,
             entity.HasData(
                 new Departamento()
                 {
+                    Id = 1,
                     Nombre = "Sistemas",
                     Activo = true
                 }
