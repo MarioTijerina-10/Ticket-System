@@ -37,9 +37,12 @@ services:
       - DB_NAME=${DB_NAME}
       - DB_SERVER=${DB_SERVER}
       - DB_USER=${DB_USER}
+    volumes:
+      - ticketsapp-keys:/app/keys
 
 volumes:
   sqlserver-data:
+  ticketsapp-keys:
 
 networks:
   blazor-net:

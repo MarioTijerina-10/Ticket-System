@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Components;
 using TicketsApp.Servicios;
 using Microsoft.Data.SqlClient;
 using Microsoft.AspNetCore.HttpOverrides;
-using MudBlazor;
+using Microsoft.AspNetCore.DataProtection;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -101,6 +101,10 @@ builder.Services.AddTransient<ServicioCorreo>();
 builder.Services.AddSingleton<EmailQueue>();
 builder.Services.AddHostedService<ServicoCerrarTickets>();
 builder.Services.AddHostedService<ServicioDeFondoCorreo>();
+
+builder.Services.AddDataProtection()
+    .PersistKeysToFileSystem(new DirectoryInfo("/app/keys"))
+    .SetApplicationName("TicketsApp");
 
 builder.Services.AddScoped(sp =>
 {
