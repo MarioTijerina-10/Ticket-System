@@ -344,14 +344,6 @@ namespace TicketsApp.Migrations
                         .HasColumnType("nvarchar(max)")
                         .HasColumnName("descripcion");
 
-                    b.Property<DateTime?>("FechaCierre")
-                        .HasColumnType("datetime2")
-                        .HasColumnName("fecha_cierre");
-
-                    b.Property<DateTime?>("FechaTomado")
-                        .HasColumnType("datetime2")
-                        .HasColumnName("fecha_tomado");
-
                     b.Property<int?>("FkCategoria")
                         .HasColumnType("int")
                         .HasColumnName("fk_categoria");

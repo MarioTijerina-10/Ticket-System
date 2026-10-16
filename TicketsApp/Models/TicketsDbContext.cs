@@ -29,8 +29,6 @@ public partial class TicketsDbContext : IdentityDbContext<Usuario, IdentityRole,
 
     public virtual DbSet<Proveedor> Proveedor { get; set; }
 
-    public virtual DbSet<Notificacion> Notificaciones { get; set; }
-
     public virtual DbSet<ComentarioTicket> Comentarios { get; set; }
 
     public virtual DbSet<Departamento> Departamentos { get; set; }
@@ -252,33 +250,6 @@ public partial class TicketsDbContext : IdentityDbContext<Usuario, IdentityRole,
             entity.Property(e => e.Activo).HasColumnName("activo");
 
             entity.HasOne(d => d.FkCategoriaNavigation).WithMany(d => d.Proveedores).HasForeignKey(d => d.FkCategoria);
-        });
-
-        modelBuilder.Entity<Notificacion>(entity =>
-        {
-            entity.Property(e => e.Id).HasColumnName("id");
-            entity.Property(e => e.FkAnalista).HasColumnName("fk_analista");
-            entity.Property(e => e.FkUsuario).HasColumnName("fk_usuario");
-            entity.Property(e => e.FkTicket).HasColumnName("fk_ticket");
-            entity.Property(e => e.Mensaje).HasColumnName("mensaje");
-            entity.Property(e => e.Leida).HasColumnName("leida");
-            entity.Property(e => e.Fecha).HasColumnName("fecha");
-
-            entity.HasOne(d => d.FkUsuarioNavigation).WithMany(p => p.NotificacionFkUsuarioNavigations)
-                .HasForeignKey(d => d.FkUsuario)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("FK_Notificaciones_Usuarios");
-
-            entity.HasOne(d => d.FkAnalistaNavigation).WithMany(p => p.NotificacionFkAnalistaNavigations)
-                .HasForeignKey(d => d.FkAnalista)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("FK_Notificaciones_Analistas");
-
-
-            entity.HasOne(d => d.FkTicketNavigation).WithMany(p => p.NotificacionesTickets)
-                .HasForeignKey(d => d.FkTicket)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("FK_Notificaciones_Tickets");
         });
 
         modelBuilder.Entity<ComentarioTicket>(entity =>
