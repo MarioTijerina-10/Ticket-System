@@ -1,7 +1,9 @@
 @page "/Proveedores"
 @inherits ComponenteBase
+@attribute [Authorize(Roles = "Analista,Admin")]
 @using DTO.Proveedores
 @using DTO.Categorias
+@using Microsoft.AspNetCore.Authorization
 @inject ServicioProveedores _Proveedores
 @inject IDialogService _Dialogo
 @inject ISnackbar _Snackbar
@@ -47,8 +49,7 @@
         <MudText Typo="Typo.h6">Proveedores</MudText>
     </ToolBarContent>
     <Columns>
-        <PropertyColumn Property="p => p.Id" Title="Id">Id</PropertyColumn>
-        <PropertyColumn Property="p => p.Nombre" Title="Nombre" />
+        <PropertyColumn Property="p => p.Id" Title="Id" />
         <TemplateColumn Title="Nombre" Filterable="true">
             <CellTemplate Context="x">
                 @x.Item.Nombre
@@ -58,7 +59,6 @@
                               ValueChanged="@(async (string? v) => await AsignarValorFiltro(v, x => @filtrado.Nombre = x))" />
             </FilterTemplate>
         </TemplateColumn>
-        <PropertyColumn Property="p => p.NomCategoria" Title="Categoria" />
         <TemplateColumn Title="Categoria" Filterable="true">
             <CellTemplate Context="x">
                 @x.Item.NomCategoria
@@ -112,9 +112,6 @@
         proveedorNuevo.FkCategoria = categorias.FirstOrDefault()!.Id;
         await modal_nuevo_proveedor.ShowAsync("Nuevo Proveedor", new DialogOptions()
         {
-            CloseButton = true,
-            BackgroundClass = "blur",
-            FullWidth = true,
             MaxWidth = MaxWidth.Small
         });
     }
@@ -147,7 +144,8 @@
 <MudDialog @ref="modal_nuevo_proveedor" TitleClass="dialog-title">
     <DialogContent>
         <MudForm @ref="form_nuevo_proveedor">
-            <MudTextField Label="Nombre" Required @bind-Value="@proveedorNuevo.Nombre" />
+            <MudTextField Label="Nombre" Required RequiredError="Campo Requerido.."
+                          @bind-Value="@proveedorNuevo.Nombre" />
             <MudSelect @bind-Value="proveedorNuevo.FkCategoria" Label="Categoria" Class="mt-2">
                 @foreach (var x in categorias)
                 {

@@ -70,6 +70,8 @@ public partial class Ticket
 
     public virtual ICollection<ComentarioTicket> ComentariosTickets { get; set; } = new List<ComentarioTicket>();
 
+    public virtual ICollection<Notificacion> NotificacionesTickets { get; set; } = new List<Notificacion>();
+
     [NotMapped]
     public TimeSpan? Abierto_Asignado => TiempoAbierto.HasValue ? TimeSpan.FromMinutes(TiempoAbierto.Value) : null;
 

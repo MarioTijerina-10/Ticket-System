@@ -258,7 +258,6 @@ C:\Users\hp Laptop 14\Documents\TicketsApp-Mud\TicketsApp\obj\Debug\net10.0\comp
 C:\Users\hp Laptop 14\Documents\TicketsApp-Mud\TicketsApp\obj\Debug\net10.0\compressed\nezrqnk58p-{0}-muycvpuwrr-muycvpuwrr.gz
 C:\Users\hp Laptop 14\Documents\TicketsApp-Mud\TicketsApp\obj\Debug\net10.0\compressed\v0zgfp0y55-{0}-87fc7y1x7t-87fc7y1x7t.gz
 C:\Users\hp Laptop 14\Documents\TicketsApp-Mud\TicketsApp\obj\Debug\net10.0\compressed\yfc7ypekbg-{0}-mlv21k5csn-mlv21k5csn.gz
-C:\Users\hp Laptop 14\Documents\TicketsApp-Mud\TicketsApp\obj\Debug\net10.0\compressed\usch3jicww-{0}-2jeq8efc6q-2jeq8efc6q.gz
 C:\Users\hp Laptop 14\Documents\TicketsApp-Mud\TicketsApp\obj\Debug\net10.0\compressed\jnh1wbf79i-{0}-ycbzh0sbjd-ycbzh0sbjd.gz
 C:\Users\hp Laptop 14\Documents\TicketsApp-Mud\TicketsApp\obj\Debug\net10.0\compressed\dqi9ta22lu-{0}-p6mzfccbth-p6mzfccbth.gz
 C:\Users\hp Laptop 14\Documents\TicketsApp-Mud\TicketsApp\obj\Debug\net10.0\compressed\vcpgp1c5fb-{0}-p6mzfccbth-p6mzfccbth.gz
@@ -288,7 +287,10 @@ C:\Users\hp Laptop 14\Documents\TicketsApp-Mud\TicketsApp\obj\Debug\net10.0\comp
 C:\Users\hp Laptop 14\Documents\TicketsApp-Mud\TicketsApp\bin\Debug\net10.0\BouncyCastle.Cryptography.dll
 C:\Users\hp Laptop 14\Documents\TicketsApp-Mud\TicketsApp\bin\Debug\net10.0\MailKit.dll
 C:\Users\hp Laptop 14\Documents\TicketsApp-Mud\TicketsApp\bin\Debug\net10.0\MimeKit.dll
-C:\Users\hp Laptop 14\Documents\TicketsApp-Mud\ticketsapp\obj\Debug\net10.0\compressed\tzxjg6is5z-{0}-kx6s8i3hr8-kx6s8i3hr8.gz
-C:\Users\hp Laptop 14\Documents\TicketsApp-Mud\ticketsapp\obj\Debug\net10.0\compressed\0wz98yz2xy-{0}-a2z4lu1s4i-a2z4lu1s4i.gz
-C:\Users\hp Laptop 14\Documents\TicketsApp-Mud\ticketsapp\obj\Debug\net10.0\compressed\o7k4cxtn0u-{0}-kxvrcjcdqq-kxvrcjcdqq.gz
-C:\Users\hp Laptop 14\Documents\TicketsApp-Mud\ticketsapp\obj\Debug\net10.0\compressed\9tz69vgw51-{0}-dh5kh45pdt-dh5kh45pdt.gz
+C:\Users\hp Laptop 14\Documents\TicketsApp-Mud\ticketsapp\bin\Debug\net10.0\appsettings.Production.json
+C:\Users\hp Laptop 14\Documents\TicketsApp-Mud\ticketsapp\bin\Debug\net10.0\appsettings.Staging.json
+C:\Users\hp Laptop 14\Documents\TicketsApp-Mud\ticketsapp\obj\Debug\net10.0\compressed\tzxjg6is5z-{0}-ba3pmqgwfm-ba3pmqgwfm.gz
+C:\Users\hp Laptop 14\Documents\TicketsApp-Mud\ticketsapp\obj\Debug\net10.0\compressed\0wz98yz2xy-{0}-iqa03rp1wd-iqa03rp1wd.gz
+C:\Users\hp Laptop 14\Documents\TicketsApp-Mud\ticketsapp\obj\Debug\net10.0\compressed\o7k4cxtn0u-{0}-l06jc0jg2i-l06jc0jg2i.gz
+C:\Users\hp Laptop 14\Documents\TicketsApp-Mud\ticketsapp\obj\Debug\net10.0\compressed\usch3jicww-{0}-xmx6uatd5q-xmx6uatd5q.gz
+C:\Users\hp Laptop 14\Documents\TicketsApp-Mud\ticketsapp\obj\Debug\net10.0\compressed\9tz69vgw51-{0}-bsoy6uym9s-bsoy6uym9s.gz

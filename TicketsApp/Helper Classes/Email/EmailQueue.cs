@@ -3,20 +3,20 @@ using MailKit;
 
 public class EmailQueue
 {
-    private readonly Channel<EmailRequest> cola;
+    private readonly Channel<EmailRequest> canal;
 
     public EmailQueue()
     {
-        cola = Channel.CreateUnbounded<EmailRequest>();
+        canal = Channel.CreateUnbounded<EmailRequest>();
     }
 
     public async ValueTask QueueEmailAsync(EmailRequest solicitud)
     {
-        await cola.Writer.WriteAsync(solicitud);
+        await canal.Writer.WriteAsync(solicitud);
     }
 
     public async ValueTask<EmailRequest> DequeueAsync(CancellationToken token)
     {
-        return await cola.Reader.ReadAsync(token);
+        return await canal.Reader.ReadAsync(token);
     }
 }

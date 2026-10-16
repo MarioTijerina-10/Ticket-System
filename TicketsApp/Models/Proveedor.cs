@@ -13,6 +13,7 @@ public partial class Proveedor
 
     public virtual Categoria FkCategoriaNavigation { get; set; } = null!;
 
-
     public virtual ICollection<Ticket> Tickets { get; set; } = new List<Ticket>();
+
+    public virtual ICollection<Plantilla> Plantillas { get; set; } = new List<Plantilla>();
 }

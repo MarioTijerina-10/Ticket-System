@@ -1,4 +1,6 @@
 @page "/Departamentos"
+@attribute [Authorize(Roles = "Analista,Admin")]
+@using Microsoft.AspNetCore.Authorization
 @using TicketsApp.DTO.Departamentos
 @inject ServicioDepartamentos _Departamentos
 @inject IDialogService _Dialogo
@@ -20,7 +22,7 @@
 }
 
 <MudButton Color="Color.Info" StartIcon="@Icons.Material.Filled.AddCircle" OnClick="abrir_modal_Departamento_nueva">
-    Nueva Departamento
+    Nuevo Departamento
 </MudButton>
 
 
@@ -69,8 +71,7 @@
     {
         await modal_nueva_Departamento.ShowAsync("Nuevo Departamento", new DialogOptions()
         {
-            CloseButton = true,
-            BackgroundClass = "blur"
+            MaxWidth = MaxWidth.Small
         });
     }
 }
@@ -78,7 +79,8 @@
 <MudDialog @ref="modal_nueva_Departamento" TitleClass="dialog-title">
     <DialogContent>
         <MudForm @ref="form_nueva_Departamento">
-            <MudTextField Class="m-4" @bind-value="@departamentoNuevo" Required Label="Nombre" />
+            <MudTextField Class="m-4" @bind-value="@departamentoNuevo" Required RequiredError="Campo Requerido.."
+                          Label="Nombre" />
         </MudForm>
     </DialogContent>
     <DialogActions>

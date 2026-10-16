@@ -2,22 +2,21 @@
 @attribute [Authorize]
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Authorization
-@using System.Text.Json;
 @using TicketsApp.DTO.Tickets
 @inject AuthenticationStateProvider _Auth
 @inject ServicioTickets _ServicioTickets
 @inject ServicioCamposEstaticos _ServicioDatos
 @inject IDialogService _ServicioDialogo
-@inject UserManager<Usuario> _UserManager
 @inject NavigationManager _Nav
 
 @code {
+    [CascadingParameter(Name = "UserData")]
+    UserData UserData { get; set; } = new("", "", 0, 0, "", new());
     List<GetTickets> tickets = new();
     int ticketsAbiertos = new();
     int ticketsEnProceso = new();
     int ticketsCerradosParcial = new();
     int ticketsCerrados = new();
-    Usuario? usuario = new();
     List<Usuario> analistas = new();
     List<Usuario> analistasActivos = new();
     List<Usuario> analistasConTickets = new();
@@ -73,8 +72,117 @@ t.Duracion_Asignado_CierreParcial.Value.TotalMinutes > 60).Count();
         ticketsCerradosParcial = tickets.Where(t => t.FkEstatus == 3).Count();
         ticketsCerrados = tickets.Where(t => t.FkEstatus == 4).Count();
 
+        BuildExtraCharts();
         StateHasChanged();
     }
+
+    // ---------- Extra charts ----------
+    List<ChartSeries<int>> serieTendencia = new();
+    string[] etiquetasTendencia = { };
+
+    int[] dataEstatus = { };
+    string[] leyendasEstatus = { "Abiertos", "En Proceso", "Cerrados Técnico", "Cerrados" };
+
+    ChartSeries<int> serieCategorias = new();
+    string[] etiquetasCategorias = { };
+
+    ChartSeries<int> serieUnidades = new();
+    string[] etiquetasUnidades = { };
+
+    ChartSeries<int> serieHoras = new();
+    string[] etiquetasHoras = Enumerable.Range(0, 24).Select(h => $"{h}h").ToArray();
+
+    ChartSeries<int> serieTiempoAnalista = new();
+    string[] etiquetasTiempoAnalista = { };
+
+    private void BuildExtraCharts()
+    {
+        var inicio = rangoDeTiempo.Start!.Value.Date;
+        var fin = rangoDeTiempo.End!.Value.Date;
+
+        // 1. Daily trend: created vs closed
+        var dias = Enumerable.Range(0, (fin - inicio).Days + 1)
+                             .Select(i => inicio.AddDays(i)).ToList();
+
+        int paso = Math.Max(1, dias.Count / 8); // roughly 8 labels on the axis
+        etiquetasTendencia = dias
+            .Select((d, i) => i % paso == 0 ? d.ToString("dd/MM") : "")
+            .ToArray();
+        serieTendencia = new()
+    {
+        new ChartSeries<int>
+        {
+            Name = "Creados",
+            Data = dias.Select(d => tickets.Count(t => t.FechaInicio.Date == d)).ToArray()
+        },
+        new ChartSeries<int>
+        {
+            Name = "Cerrados",
+            Data = dias.Select(d => tickets.Count(t => t.FechaCierre.HasValue && t.FechaCierre.Value.Date == d)).ToArray()
+        }
+    };
+
+        // 2. Status donut (reuses counts already computed)
+        dataEstatus = new[] { ticketsAbiertos, ticketsEnProceso, ticketsCerradosParcial, ticketsCerrados };
+
+        // 3. By category
+        var porCategoria = tickets.GroupBy(t => t.Categoria)
+                                  .Select(g => new { Nombre = g.Key, Total = g.Count() })
+                                  .OrderByDescending(x => x.Total).Take(8).ToList();
+        // TODO: swap the Id for the category name (see notes below)
+        etiquetasCategorias = porCategoria.Select(x => x.Nombre).ToArray();
+        serieCategorias.Data = porCategoria.Select(x => x.Total).ToArray();
+
+        // 4. By unit
+        var porUnidad = tickets.GroupBy(t => t.Unidad)
+                               .Select(g => new { Nombre = g.Key, Total = g.Count() })
+                               .OrderByDescending(x => x.Total).Take(8).ToList();
+        etiquetasUnidades = porUnidad.Select(x => x.Nombre).ToArray();
+        serieUnidades.Data = porUnidad.Select(x => x.Total).ToArray();
+
+        // 5. By hour of day
+        serieHoras.Data = Enumerable.Range(0, 24)
+                                    .Select(h => tickets.Count(t => t.FechaInicio.Hour == h)).ToArray();
+
+        // 6. Average close time per analyst (minutes)
+        etiquetasTiempoAnalista = analistasConTickets.Select(a => a.Nombre).ToArray();
+        serieTiempoAnalista.Data = analistasConTickets.Select(a =>
+        {
+            var duraciones = a.TicketFkAnalistaNavigations
+                .Where(t => t.FechaInicio >= rangoDeTiempo.Start!.Value
+                         && t.FechaInicio <= rangoDeTiempo.End!.Value
+                         && t.Duracion.HasValue)
+                .Select(t => t.Duracion!.Value)
+                .ToList();
+            return duraciones.Count == 0 ? 0 : (int)duraciones.Average();
+        }).ToArray();
+    }
+
+    private record ResumenCard(string Titulo, int Valor, string Icono, int Estatus);
+
+    private IEnumerable<ResumenCard> Resumen => new[]
+    {
+    new ResumenCard("Abiertos", ticketsAbiertos, Icons.Material.Filled.Announcement, 1),
+    new ResumenCard("En Proceso", ticketsEnProceso, Icons.Material.Filled.Build, 2),
+    new ResumenCard("Cerrados Por Tecnico", ticketsCerradosParcial, Icons.Material.Filled.AssignmentInd, 3),
+    new ResumenCard("Cerrados", ticketsCerrados, Icons.Material.Filled.Check, 4)
+};
+
+    PieChartOptions donutOpt = new()
+    {
+        ShowLegend = true,
+        ShowValues = true,
+        ChartPalette = new[] { "#0091ae", "#f39c05", "#77b130", "#00a885" }
+    };
+    LineChartOptions lineOpt = new()
+    {
+        ShowLegend = true,
+        YAxisTitle = "Tickets",
+        XAxisTitle = "Dia",
+        LineStrokeWidth = 3,
+        YAxisRequireZeroPoint = true
+    };
+    BarChartOptions barSimpleOpt = new() { ShowLegend = false, ShowValues = true };
 
     private async Task GetTickets()
     {
@@ -85,13 +193,14 @@ t.Duracion_Asignado_CierreParcial.Value.TotalMinutes > 60).Count();
 
     protected override async Task OnInitializedAsync()
     {
-        var EstadoAuth = await _Auth.GetAuthenticationStateAsync();
-        var EstadoUsuario = EstadoAuth.User;
-        usuario = await _UserManager.GetUserAsync(EstadoUsuario);
-
+        var usuario_EsUsuarioBasico = UserData.EstadoUsuario.IsInRole("Usuario");
+        if (usuario_EsUsuarioBasico)
+            _Nav.NavigateTo("/UsuarioTickets");
         await GetAnalistas();
         await UpdateDash(rangoDeTiempo);
     }
+
+
 
     @* Consigue analistas totales y analistas con tickets buscado *@
 
@@ -104,7 +213,7 @@ analistasConTickets;
     }
 }
 
-<MudText Typo="Typo.h3" Align="Align.Center" Class="mb-3">Dashboard General</MudText>
+<MudText Typo="Typo.h3" Align="Align.Center" Class="mb-3 titulo-dashboard">Dashboard General</MudText>
 
 <MudDivider />
 
@@ -114,170 +223,130 @@ analistasConTickets;
 <MudDivider />
 
 <MudText Typo="Typo.h5" Class="mt-5" Align="Align.Center">Tickets Pendientes</MudText>
-
-<MudStack Row Class="pt-5 d-flex mb-6"
-          Style="position: sticky; top: 64px; z-index: 1100; background-color: var(--mud-palette-background);">
-    <MudLink Href="/Tickets?estatus=1" Class="flex-1 hover-grow cursor-pointer no-outline">
-        <MudCard Elevation="4" Outlined="true">
-            <MudCardHeader>
-                <CardHeaderContent>
-                    <MudText Typo="Typo.h6">Abiertos</MudText>
-                </CardHeaderContent>
-            </MudCardHeader>
-            <MudCardContent>
-                <MudStack Row>
-                    <MudText Typo="Typo.h4">@ticketsAbiertos</MudText>
-                    <MudIcon Icon="@Icons.Material.Filled.Announcement" Size="Size.Large"></MudIcon>
-                </MudStack>
-            </MudCardContent>
-        </MudCard>
-    </MudLink>
-
-    <MudLink Href="/Tickets?estatus=2" Class="flex-1 hover-grow cursor-pointer no-outline">
-        <MudCard Elevation="4" Outlined="true">
-            <MudCardHeader>
-                <CardHeaderContent>
-                    <MudText Typo="Typo.h6">En Proceso</MudText>
-                </CardHeaderContent>
-            </MudCardHeader>
-            <MudCardContent>
-                <MudStack Row>
-                    <MudText Typo="Typo.h4">@ticketsEnProceso</MudText>
-                    <MudIcon Icon="@Icons.Material.Filled.Build" Size="Size.Large"></MudIcon>
-                </MudStack>
-            </MudCardContent>
-        </MudCard>
-    </MudLink>
-
-    <MudLink Href="/Tickets?estatus=3" Class="flex-1 hover-grow cursor-pointer no-outline">
-        <MudCard Elevation="4" Outlined="true">
-            <MudCardHeader>
-                <CardHeaderContent>
-                    <MudText Typo="Typo.h6">Cerrados Por Tecnico</MudText>
-                </CardHeaderContent>
-            </MudCardHeader>
-            <MudCardContent>
-                <MudStack Row>
-                    <MudText Typo="Typo.h4">@ticketsCerradosParcial</MudText>
-                    <MudIcon Icon="@Icons.Material.Filled.AssignmentInd" Size="Size.Large"></MudIcon>
-                </MudStack>
-            </MudCardContent>
-        </MudCard>
-    </MudLink>
-
-    <MudLink Href="/Tickets?estatus=4" Class="flex-1 hover-grow cursor-pointer no-outline">
-        <MudCard Elevation="4" Outlined="true">
-            <MudCardHeader>
-                <CardHeaderContent>
-                    <MudText Typo="Typo.h6">Cerrados</MudText>
-                </CardHeaderContent>
-            </MudCardHeader>
-            <MudCardContent>
-                <MudStack Row>
-                    <MudText Typo="Typo.h4">@ticketsCerrados</MudText>
-                    <MudIcon Icon="@Icons.Material.Filled.Check" Size="Size.Large"></MudIcon>
-                </MudStack>
-            </MudCardContent>
-        </MudCard>
-    </MudLink>
-</MudStack>
+<MudGrid Spacing="2" Class="sticky-resumen pt-5 pb-3 mb-4">
+    @foreach (var r in Resumen)
+    {
+        <MudItem xs="6" md="3" Class="d-flex">
+            <MudLink Href="@($"/Tickets?estatus={r.Estatus}")"
+                     Class="d-block mud-width-full hover-grow cursor-pointer no-outline">
+                <MudCard Elevation="4" Outlined="true" Class="mud-height-full">
+                    <MudCardHeader>
+                        <CardHeaderContent>
+                            <MudText Typo="Typo.h6">@r.Titulo</MudText>
+                        </CardHeaderContent>
+                    </MudCardHeader>
+                    <MudCardContent>
+                        <MudStack Row AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                            <MudText Typo="Typo.h4">@r.Valor</MudText>
+                            <MudIcon Icon="@r.Icono" Size="Size.Large" />
+                        </MudStack>
+                    </MudCardContent>
+                </MudCard>
+            </MudLink>
+        </MudItem>
+    }
+</MudGrid>
 
 <MudDivider />
 
 <MudText Typo="Typo.h5" Class="mt-6" Align="Align.Center">Rendimiento por Tecnico</MudText>
 
-<MudStack Row Class="mt-5 mb-5 d-flex flex-wrap justify-content-center align-items-center"
-          AlignItems="AlignItems.Center" Justify="Justify.Center">
+
+<MudGrid Spacing="3" Class="mt-5 mb-5" Justify="Justify.Center">
     @foreach (var x in analistasConTickets)
     {
-        <MudCard Elevation="6" Outlined="true" Class="carta-analista card-header-title">
-            <MudCardHeader Class="carta-analista-encabezado">
-                <CardHeaderContent>
-                    <MudText Typo="Typo.subtitle1">
-                        @x.Nombre
-                    </MudText>
-                </CardHeaderContent>
-            </MudCardHeader>
-            <MudDivider />
-            <MudCardContent>
-                <MudStack>
-                    <MudText Typo="Typo.body2">
-                        Tickets En Proceso:
-                        @x.TicketFkAnalistaNavigations.Where(t => t.FkEstatus == 2 && t.FechaInicio >=
-                   rangoDeTiempo.Start!.Value && t.FechaInicio <= rangoDeTiempo.End!.Value).Count()</MudText>
+        <MudItem xs="12" sm="6" md="4" lg="3">
+            <MudCard Elevation="6" Outlined="true" Class="carta-analista">
+                <MudCardHeader Class="carta-analista-encabezado">
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.subtitle1" Class="card-header-title">
+                            @x.Nombre
+                        </MudText>
+                    </CardHeaderContent>
+                </MudCardHeader>
+                <MudDivider />
+                <MudCardContent>
+                    <MudStack>
                         <MudText Typo="Typo.body2">
-                            Tickets Cerrados Parcialmente:
-                            @x.TicketFkAnalistaNavigations.Where(t => t.FkEstatus == 3 && t.FechaInicio >=
-                    rangoDeTiempo.Start!.Value && t.FechaInicio <= rangoDeTiempo.End!.Value).Count()
-                        </MudText>
-                        <MudText Typo="Typo.body2">Tickets Cerrados:
-                            @x.TicketFkAnalistaNavigations.Where(t => t.FkEstatus == 4 && t.FechaInicio >=
-                    rangoDeTiempo.Start!.Value && t.FechaInicio <= rangoDeTiempo.End!.Value).Count()
-                        </MudText>
-                        <MudText Typo="Typo.body2">Tickets Totales:
-                            @x.TicketFkAnalistaNavigations.Where(t => t.FkEstatus != 1 && t.FechaInicio >=
-                    rangoDeTiempo.Start!.Value && t.FechaInicio <= rangoDeTiempo.End!.Value).Count()
-                        </MudText>
+                            Tickets En Proceso:
+                            @x.TicketFkAnalistaNavigations.Where(t => t.FkEstatus == 2 && t.FechaInicio >=
+                       rangoDeTiempo.Start!.Value && t.FechaInicio <= rangoDeTiempo.End!.Value).Count()</MudText>
+                            <MudText Typo="Typo.body2">
+                                Tickets Cerrados Parcialmente:
+                                @x.TicketFkAnalistaNavigations.Where(t => t.FkEstatus == 3 && t.FechaInicio >=
+                        rangoDeTiempo.Start!.Value && t.FechaInicio <= rangoDeTiempo.End!.Value).Count()
+                            </MudText>
+                            <MudText Typo="Typo.body2">Tickets Cerrados:
+                                @x.TicketFkAnalistaNavigations.Where(t => t.FkEstatus == 4 && t.FechaInicio >=
+                        rangoDeTiempo.Start!.Value && t.FechaInicio <= rangoDeTiempo.End!.Value).Count()
+                            </MudText>
+                            <MudText Typo="Typo.body2">Tickets Totales:
+                                @x.TicketFkAnalistaNavigations.Where(t => t.FkEstatus != 1 && t.FechaInicio >=
+                        rangoDeTiempo.Start!.Value && t.FechaInicio <= rangoDeTiempo.End!.Value).Count()
+                            </MudText>
 
-                        <MudDivider />
+                            <MudDivider />
 
-                        <MudText Typo="Typo.subtitle1" Color="Color.Warning">Promedios de Tiempo</MudText>
-                        <MudText Typo="Typo.body2">
-                            Tiempo de Asignacion:
-                            @if (x.TiempoDeRespuesta_Promedio(rangoDeTiempo.Start.Value, rangoDeTiempo.End.Value) == null)
+                            <MudText Typo="Typo.subtitle1" Color="Color.Warning">Promedios de Tiempo</MudText>
+
+                        
+                            @if (rangoDeTiempo.Start is DateTime desde && rangoDeTiempo.End is
+                                            DateTime hasta)
                             {
-                                <text>N/a</text>
+                                <MudText Typo="Typo.body2">
+                                    Tiempo de Asignacion:
+                                    @{
+                                        var promedio = x.TiempoDeRespuesta_Promedio(desde, hasta);
+
+                                        if (promedio is not null)
+                                        {
+                                            <text>@promedio</text>
+                                        }
+                                        else
+                                        {
+                                            <text>N/a</text>
+                                        }
+                                    }
+                                </MudText>
+                                <MudText Typo="Typo.body2">
+                                    Tiempo de Cierre:
+                                    @{
+                                        var promedio = x.TiempoDeCierre_Promedio(desde, hasta);
+
+                                        if (promedio is not null)
+                                        {
+                                            <text>@promedio</text>
+                                        }
+                                        else
+                                        {
+                                            <text>N/a</text>
+                                        }
+                                    }
+                                </MudText>
+                                <MudText Typo="Typo.body2">
+                                    Tiempo Total:
+                                    @{
+                                        var promedio = x.TiempoTotal_Promedio(desde, hasta);
+
+                                        if (promedio is not null)
+                                        {
+                                            <text>@promedio</text>
+                                        }
+                                        else
+                                        {
+                                            <text>N/a</text>
+                                        }
+                                    }
+                                </MudText>
                             }
-                            else
-                            {
-                                <text>@x.TiempoDeRespuesta_Promedio(rangoDeTiempo.Start.Value, rangoDeTiempo.End.Value) </text>
-                            }
-                        </MudText>
-                        <MudText Typo="Typo.body2">
-                            Tiempo de Cierre:
-                            @if (x.TiempoDeCierre_Promedio(rangoDeTiempo.Start.Value, rangoDeTiempo.End.Value) == null)
-                            {
-                                <text>N/a</text>
-                            }
-                            else
-                            {
-                                <text>@x.TiempoDeCierre_Promedio(rangoDeTiempo.Start.Value, rangoDeTiempo.End.Value)</text>
-                            }
-                        </MudText>
-                        <MudText Typo="Typo.body2">
-                            Tiempo Total:
-                            @if (x.TiempoTotal_Promedio(rangoDeTiempo.Start.Value, rangoDeTiempo.End.Value) == null)
-                            {
-                                <text>N/a</text>
-                            }
-                            else
-                            {
-                                <text>@x.TiempoTotal_Promedio(rangoDeTiempo.Start.Value, rangoDeTiempo.End.Value)</text>
-                            }
-                        </MudText>
-                    </MudStack>
-                </MudCardContent>
-            </MudCard>
+                        </MudStack>
+                    </MudCardContent>
+                </MudCard>
+            </MudItem>
         }
+        
+    </MudGrid>
 
-    </MudStack>
-
-    <MudDivider />
-
-    <MudText Typo="Typo.h5" Class="mt-5" Align="Align.Center">Tickets Por Tiempo de respuesta</MudText>
-
-    <MudStack AlignItems="AlignItems.Center">
-        <MudPaper Class="pa-8 mt-8 mb-6">
-            <MudChart ChartType="ChartType.Pie" ChartSeries="@data_tiempos_tickets.AsChartDataSet()"
-                      ChartLabels="@leyendas_tiempos_tickets" Width="25vw" ChartOptions="pieChartOpt" />
-        </MudPaper>
-    </MudStack>
-
-<MudDivider />
-
-    <MudDivider />
-
-    <MudText Typo="Typo.h5" Class="mt-5" Align="Align.Center">Tickets Cerrados por Analista</MudText>
 
 @code {
     PieChartOptions pieChartOpt = new PieChartOptions()
@@ -293,13 +362,76 @@ analistasConTickets;
     };
 }
 
-<MudStack AlignItems="AlignItems.Center">
-    <MudPaper Class="pa-8 mt-8 mb-6">
-        <MudChart ChartType="ChartType.Bar" ChartSeries="@data_tickets_analista.AsList()"
-                  ChartLabels="@leyendas_tickets_analista" Width="45vw" ChartOptions="barChartOpt">
-        </MudChart>
-    </MudPaper>
-</MudStack>
+<MudDivider Class="my-6" />
+<MudText Typo="Typo.h5" Align="Align.Center" Class="mb-5">Análisis Detallado</MudText>
+
+<MudGrid Justify="Justify.Center">
+    
+    <MudItem xs="12" lg="4">
+        <MudPaper Class="pa-6">
+            <MudText Typo="Typo.h6" Align="Align.Center">Tickets Por Tiempo de respuesta</MudText>
+            <MudChart ChartType="ChartType.Pie" ChartSeries="@data_tiempos_tickets.AsChartDataSet()"
+                      ChartLabels="@leyendas_tiempos_tickets" Width="100%" Height="350px" ChartOptions="pieChartOpt" />
+        </MudPaper>
+    </MudItem>
+
+    <MudItem xs="12" lg="8">
+        <MudPaper Class="pa-6">
+            <MudText Typo="Typo.h6" Align="Align.Center">Tickets Cerrados por Analista</MudText>
+            <MudChart ChartType="ChartType.Bar" ChartSeries="@data_tickets_analista.AsList()"
+                      ChartLabels="@leyendas_tickets_analista" Width="100%" Height="350px" ChartOptions="barChartOpt" />
+        </MudPaper>
+    </MudItem>
+
+    <MudItem lg="12">
+        <MudPaper Class="pa-6">
+            <MudText Typo="Typo.h6" Align="Align.Center">Tickets Creados vs Cerrados por Día</MudText>
+            <MudChart ChartType="ChartType.Line" ChartSeries="@serieTendencia" ChartLabels="@etiquetasTendencia"
+                      Height="350px" Width="100%" ChartOptions="lineOpt" />
+        </MudPaper>
+    </MudItem>
+
+    <MudItem xs="12" md="4">
+        <MudPaper Class="pa-6">
+            <MudText Typo="Typo.h6" Align="Align.Center">Distribución por Estatus</MudText>
+            <MudChart ChartType="ChartType.Pie" ChartSeries="@dataEstatus.AsChartDataSet()"
+                      ChartLabels="@leyendasEstatus" Width="100%" ChartOptions="donutOpt" />
+        </MudPaper>
+    </MudItem>
+
+    <MudItem xs="12" md="8">
+        <MudPaper Class="pa-6">
+            <MudText Typo="Typo.h6" Align="Align.Center">Tickets por Hora del Día</MudText>
+            <MudChart ChartType="ChartType.Bar" ChartSeries="@serieHoras.AsList()" ChartLabels="@etiquetasHoras"
+                      Width="100%" ChartOptions="barSimpleOpt" />
+        </MudPaper>
+    </MudItem>
+
+    <MudItem xs="12" md="6">
+        <MudPaper Class="pa-6">
+            <MudText Typo="Typo.h6" Align="Align.Center">Tickets por Categoría</MudText>
+            <MudChart ChartType="ChartType.Bar" ChartSeries="@serieCategorias.AsList()"
+                      ChartLabels="@etiquetasCategorias" Width="100%" ChartOptions="barSimpleOpt" />
+        </MudPaper>
+    </MudItem>
+
+    <MudItem xs="12" md="6">
+        <MudPaper Class="pa-6">
+            <MudText Typo="Typo.h6" Align="Align.Center">Tickets por Unidad</MudText>
+            <MudChart ChartType="ChartType.Bar" ChartSeries="@serieUnidades.AsList()" ChartLabels="@etiquetasUnidades"
+                      Width="100%" ChartOptions="barSimpleOpt" />
+        </MudPaper>
+    </MudItem>
+
+    <MudItem xs="12">
+        <MudPaper Class="pa-6">
+            <MudText Typo="Typo.h6" Align="Align.Center">Tiempo Promedio de Cierre por Analista (min)</MudText>
+            <MudChart ChartType="ChartType.Bar" ChartSeries="@serieTiempoAnalista.AsList()"
+                      ChartLabels="@etiquetasTiempoAnalista" Width="100%" ChartOptions="barSimpleOpt" />
+        </MudPaper>
+    </MudItem>
+
+</MudGrid>
 
 @code {
     List<int> lista_tickets_analista = new();

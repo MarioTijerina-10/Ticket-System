@@ -33,12 +33,15 @@
     }
 }
 
-<MudStack Justify="Justify.Center" AlignItems="AlignItems.Center" Style="height: 100vh;">
-    <MudGrid Al Justify="Justify.Center" Class="ps-a">
+<MudStack Justify="Justify.Center" AlignItems="AlignItems.Center" Style="height: 80vh;">
+    <MudGrid Justify="Justify.Center" Class="ps-a">
         <MudItem xs="10" sm="6" md="5" lg="5">
             <MudPaper Class="pa-8">
                 <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Class="ma-3 border-solid">
-                    <MudText Typo="Typo.h5">Tickets</MudText>
+                    <MudStack Row>
+                        <MudImage Src="/Images/ticket-system-logo.png" Height="40" />
+                        <MudText Typo="Typo.h4">Ticket-System</MudText>
+                    </MudStack>
                     <MudText Typo="Typo.h6">Inicio de Sesion</MudText>
                 </MudStack>
                 <MudSpacer />
@@ -46,12 +49,11 @@
                     <MudStack Class="pa-5 border-solid border mud-border-primary"
                               Style="border-color: white !important;">
                         <MudText>Usuario</MudText>
-                        <MudTextField @bind-Value="credenciales.Usuario" Required Variant="Variant.Outlined"
-                                      MaxLength="25">
-                        </MudTextField>
+                        <MudTextField @bind-Value="credenciales.Usuario" Required RequiredError="Campo Requerido.."
+                                      Variant="Variant.Outlined" MaxLength="25" />
                         <MudText>Contraseña</MudText>
-                        <MudTextField @bind-Value="credenciales.Contraseña" Required Variant="Variant.Outlined"
-                                      InputType="InputType.Password" MaxLength="25"></MudTextField>
+                        <MudTextField @bind-Value="credenciales.Contraseña" Required RequiredError="Campo Requerido.."
+                                      Variant="Variant.Outlined" InputType="InputType.Password" MaxLength="25" />
                         <MudButton Size="Size.Large" Color="Color.Info" OnClick="LoginUsuario">Iniciar Sesion
                         </MudButton>
 

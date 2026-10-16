@@ -22,8 +22,7 @@ namespace TicketsApp.Controllers
             var respuesta = await signInManager.PasswordSignInAsync(userName: credenciales.Usuario, password:
             credenciales.Contraseña, isPersistent:
             false,
-            lockoutOnFailure: false);
-
+            lockoutOnFailure: false);   
             if (respuesta.Succeeded)
             {
                 return Ok();

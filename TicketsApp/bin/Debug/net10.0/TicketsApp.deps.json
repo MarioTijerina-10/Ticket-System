@@ -9,13 +9,13 @@
       "TicketsApp/1.0.0": {
         "dependencies": {
           "ClosedXML": "0.105.0",
-          "MailKit": "4.7.1.1",
+          "MailKit": "4.18.0",
           "Microsoft.AspNetCore.Identity.EntityFrameworkCore": "10.0.6",
           "Microsoft.AspNetCore.Identity.UI": "10.0.6",
           "Microsoft.EntityFrameworkCore": "10.0.6",
           "Microsoft.EntityFrameworkCore.Design": "10.0.6",
           "Microsoft.EntityFrameworkCore.SqlServer": "10.0.6",
-          "MudBlazor": "9.10.0",
+          "MudBlazor": "9.11.0",
           "MudBlazor.Translations": "3.3.0"
         },
         "runtime": {
@@ -48,11 +48,11 @@
           }
         }
       },
-      "BouncyCastle.Cryptography/2.4.0": {
+      "BouncyCastle.Cryptography/2.7.0": {
         "runtime": {
           "lib/net6.0/BouncyCastle.Cryptography.dll": {
             "assemblyVersion": "2.0.0.0",
-            "fileVersion": "2.4.0.33771"
+            "fileVersion": "2.7.0.16391"
           }
         }
       },
@@ -117,14 +117,14 @@
           }
         }
       },
-      "MailKit/4.7.1.1": {
+      "MailKit/4.18.0": {
         "dependencies": {
-          "MimeKit": "4.7.1"
+          "MimeKit": "4.18.0"
         },
         "runtime": {
-          "lib/net8.0/MailKit.dll": {
-            "assemblyVersion": "4.7.0.0",
-            "fileVersion": "4.7.1.1"
+          "lib/net10.0/MailKit.dll": {
+            "assemblyVersion": "4.18.0.0",
+            "fileVersion": "4.18.0.0"
           }
         }
       },
@@ -707,14 +707,14 @@
           }
         }
       },
-      "MimeKit/4.7.1": {
+      "MimeKit/4.18.0": {
         "dependencies": {
-          "BouncyCastle.Cryptography": "2.4.0"
+          "BouncyCastle.Cryptography": "2.7.0"
         },
         "runtime": {
-          "lib/net8.0/MimeKit.dll": {
-            "assemblyVersion": "4.7.0.0",
-            "fileVersion": "4.7.1.0"
+          "lib/net10.0/MimeKit.dll": {
+            "assemblyVersion": "4.18.0.0",
+            "fileVersion": "4.18.0.0"
           }
         }
       },
@@ -729,17 +729,17 @@
           }
         }
       },
-      "MudBlazor/9.10.0": {
+      "MudBlazor/9.11.0": {
         "runtime": {
           "lib/net10.0/MudBlazor.dll": {
-            "assemblyVersion": "9.10.0.0",
-            "fileVersion": "9.10.0.0"
+            "assemblyVersion": "9.11.0.0",
+            "fileVersion": "9.11.0.0"
           }
         }
       },
       "MudBlazor.Translations/3.3.0": {
         "dependencies": {
-          "MudBlazor": "9.10.0"
+          "MudBlazor": "9.11.0"
         },
         "runtime": {
           "lib/net10.0/MudBlazor.Translations.dll": {
@@ -1045,12 +1045,12 @@
       "path": "azure.identity/1.14.2",
       "hashPath": "azure.identity.1.14.2.nupkg.sha512"
     },
-    "BouncyCastle.Cryptography/2.4.0": {
+    "BouncyCastle.Cryptography/2.7.0": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-SwXsAV3sMvAU/Nn31pbjhWurYSjJ+/giI/0n6tCrYoupEK34iIHCuk3STAd9fx8yudM85KkLSVdn951vTng/vQ==",
-      "path": "bouncycastle.cryptography/2.4.0",
-      "hashPath": "bouncycastle.cryptography.2.4.0.nupkg.sha512"
+      "sha512": "sha512-U+12df8UEWHgBi04YVf/Lgi2dy3SItlIYvHjjEVa/BngCQIzDCDRBk50DDByCfDvSbe5pRNFr3b7UrVK2kMcLw==",
+      "path": "bouncycastle.cryptography/2.7.0",
+      "hashPath": "bouncycastle.cryptography.2.7.0.nupkg.sha512"
     },
     "ClosedXML/0.105.0": {
       "type": "package",
@@ -1094,12 +1094,12 @@
       "path": "humanizer.core/2.14.1",
       "hashPath": "humanizer.core.2.14.1.nupkg.sha512"
     },
-    "MailKit/4.7.1.1": {
+    "MailKit/4.18.0": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-Y3okmIxu8g/ZcoJiE2i+dCeKgnNyddsXmcJslZnCPGVPP0aRyeVINHV1h97V+OVMdqjQI6O12J2p8Duwq5UEqQ==",
-      "path": "mailkit/4.7.1.1",
-      "hashPath": "mailkit.4.7.1.1.nupkg.sha512"
+      "sha512": "sha512-Sk+n5f4uVKiQKECOCPcFcYtYpIt9rcli7dDboSkWM2TBbTYE7EpfudL+e5a6TFp9eMHOzNYOydzZh0b+zFGK4A==",
+      "path": "mailkit/4.18.0",
+      "hashPath": "mailkit.4.18.0.nupkg.sha512"
     },
     "Microsoft.AspNetCore.Identity.EntityFrameworkCore/10.0.6": {
       "type": "package",
@@ -1297,12 +1297,12 @@
       "path": "microsoft.visualstudio.solutionpersistence/1.0.52",
       "hashPath": "microsoft.visualstudio.solutionpersistence.1.0.52.nupkg.sha512"
     },
-    "MimeKit/4.7.1": {
+    "MimeKit/4.18.0": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-Qoj4aVvhX14A1FNvaJ33hzOP4VZI2j+Mr38I9wSGcjMq4BYDtWLJG89aJ9nRW2cNfH6Czjwyp7+Mh++xv3AZvg==",
-      "path": "mimekit/4.7.1",
-      "hashPath": "mimekit.4.7.1.nupkg.sha512"
+      "sha512": "sha512-foq2guy0YL0l0WuHrW4CuYicooXDpXlTOG1kuzlw9VcWfZpaf6zu3nX2kV3n6VKTrMy24vQJgE2TepszntVd3A==",
+      "path": "mimekit/4.18.0",
+      "hashPath": "mimekit.4.18.0.nupkg.sha512"
     },
     "Mono.TextTemplating/3.0.0": {
       "type": "package",
@@ -1311,12 +1311,12 @@
       "path": "mono.texttemplating/3.0.0",
       "hashPath": "mono.texttemplating.3.0.0.nupkg.sha512"
     },
-    "MudBlazor/9.10.0": {
+    "MudBlazor/9.11.0": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-1TzwlootgzINmTBJn03YAF8GStLz73oLQff383MSDIQexjhPnlryatsynYSvnQ9TJmUfAJo0wsnufyGY76oXOw==",
-      "path": "mudblazor/9.10.0",
-      "hashPath": "mudblazor.9.10.0.nupkg.sha512"
+      "sha512": "sha512-hboxF5cQuMYjB0w6+tScmNt0ACuoCu35TGPsCmCq8OeQgvtPtzQ1s9auAOrINj/J6I/ZyBB1rmUzrcMKj14RFA==",
+      "path": "mudblazor/9.11.0",
+      "hashPath": "mudblazor.9.11.0.nupkg.sha512"
     },
     "MudBlazor.Translations/3.3.0": {
       "type": "package",

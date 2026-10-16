@@ -27,6 +27,11 @@ public class ServicioDeFondoCorreo : BackgroundService
 
                 await remitente.MandarEmailAsync(correo.Para, correo.Asunto, correo.html);
             }
+            catch (OperationCanceledException) when (token.IsCancellationRequested)
+            {
+                Console.WriteLine($"Servicio de correo deteniendose...");
+                break;
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al Mandar correo");

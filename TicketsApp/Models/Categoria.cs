@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-
-namespace TicketsApp.Models;
+﻿namespace TicketsApp.Models;
 
 public partial class Categoria
 {
@@ -14,4 +11,6 @@ public partial class Categoria
     public virtual ICollection<Ticket> Tickets { get; set; } = new List<Ticket>();
 
     public virtual ICollection<Proveedor> Proveedores { get; set; } = new List<Proveedor>();
+
+    public virtual ICollection<Plantilla> Plantillas { get; set; } = new List<Plantilla>();
 }

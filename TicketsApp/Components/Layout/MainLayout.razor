@@ -1,22 +1,33 @@
 ﻿@inherits LayoutComponentBase
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Components.Authorization
+@using TicketsApp.DTO.Usuarios
+@inject NavigationManager _Nav
+@inject AuthenticationStateProvider _Auth
+@inject UserManager<Usuario> _UserManager
 
 <MudThemeProvider Theme="@_theme" IsDarkMode="_isDarkMode" />
 <MudPopoverProvider />
-<MudDialogProvider />
+<MudDialogProvider FullWidth="true" CloseButton="true" BackgroundClass="blur" BackdropClick="true"
+                   CloseOnEscapeKey="true" />
 <MudSnackbarProvider />
 <MudLayout>
-    <MudAppBar Elevation="1">
+    <MudAppBar Elevation="1" Color="Color.Primary">
         <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start"
                        OnClick="@((e) => DrawerToggle())" />
-        <MudImage ObjectFit="ObjectFit.Cover" Src="/Images/burgosLogo.png" Height="40" />
-        <MudText Typo="Typo.h5" Class="ml-3">Cyr-Tickets</MudText>
+        <MudImage ObjectFit="ObjectFit.Cover" Src="/Images/ticket-system-logo.png" Height="40" />
+        <MudText Typo="Typo.h5" Class="ml-3">Ticket-System</MudText>
         <MudSpacer />
+        <MudIcon Icon="@Icons.Material.Filled.Person" Class="me-2" />
+        <MudText Typo="Typo.body2">@UserData.Nombre</MudText>
     </MudAppBar>
     <MudDrawer id="nav-drawer" @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="2">
-        <NavMenu DrawerToggle="@DrawerToggle" />
+        <NavMenu />
     </MudDrawer>
     <MudMainContent Class="pt-20 pa-4">
-        @Body
+        <CascadingValue Value="UserData" Name="UserData">
+            @Body
+        </CascadingValue>
     </MudMainContent>
 </MudLayout>
 
@@ -30,10 +41,13 @@
     private bool _drawerOpen = false;
     private bool _isDarkMode = true;
     private MudTheme? _theme = null;
+    UserData UserData = new("", "", 0, 0, "", new());
 
-    protected override void OnInitialized()
+
+    protected override async Task OnInitializedAsync()
     {
         base.OnInitialized();
+        _Nav.LocationChanged += OnLocationChanged;
 
         _theme = new()
         {
@@ -41,7 +55,44 @@
             PaletteDark = _darkPalette,
             LayoutProperties = new LayoutProperties()
         };
+
+        var EstadoAuth = await _Auth.GetAuthenticationStateAsync();
+        var EstadoUsuario = EstadoAuth.User;
+        var UsuarioId = EstadoUsuario.FindFirstValue("Id") ?? "";
+        if (int.TryParse(EstadoUsuario.FindFirstValue("Nombre"), out int Nombre))
+        {
+
+
+        }
+        var UsuarioNombre = EstadoUsuario.FindFirstValue("Nombre") ?? "";
+
+        var UsuarioUnidadString = EstadoUsuario.FindFirstValue("Unidad") ?? "";
+        int UsuarioUnidad = 0;
+        if (int.TryParse(UsuarioUnidadString, out int UsuarioUnidadInt)) { }
+        {
+            UsuarioUnidad = UsuarioUnidadInt;
+        }
+
+        var UsuarioDepartamentoString = EstadoUsuario.FindFirstValue("Departamento") ?? "";
+        int UsuarioDepartamento = 0;
+        if (int.TryParse(UsuarioDepartamentoString, out int UsuarioDepartamentoInt)) { }
+        {
+            UsuarioDepartamento = UsuarioDepartamentoInt;
+        }
+
+        var UsuarioCorreo = EstadoUsuario.FindFirstValue("Correo") ?? "";
+
+        UserData = new(UsuarioNombre, UsuarioId, UsuarioUnidad, UsuarioDepartamento, UsuarioCorreo, EstadoUsuario);
     }
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        _drawerOpen = false;
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+        => _Nav.LocationChanged -= OnLocationChanged;
 
     private void DrawerToggle()
     {

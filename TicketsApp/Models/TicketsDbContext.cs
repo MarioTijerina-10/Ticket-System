@@ -4,6 +4,7 @@ using DocumentFormat.OpenXml.Drawing.Charts;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.Data.SqlClient;
+using TicketsApp.Components;
 
 namespace TicketsApp.Models;
 
@@ -28,24 +29,13 @@ public partial class TicketsDbContext : IdentityDbContext<Usuario, IdentityRole,
 
     public virtual DbSet<Proveedor> Proveedor { get; set; }
 
+    public virtual DbSet<Notificacion> Notificaciones { get; set; }
+
     public virtual DbSet<ComentarioTicket> Comentarios { get; set; }
 
     public virtual DbSet<Departamento> Departamentos { get; set; }
 
-
-    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-    {
-        var cs = new SqlConnectionStringBuilder()
-        {
-            DataSource = Environment.GetEnvironmentVariable("DB_SERVER"),
-            InitialCatalog = Environment.GetEnvironmentVariable("DB_NAME"),
-            UserID = Environment.GetEnvironmentVariable("DB_USER"),
-            Password = Environment.GetEnvironmentVariable("DB_PASSWORD"),
-            TrustServerCertificate = true
-        };
-
-        optionsBuilder.UseSqlServer(cs.ConnectionString);
-    }
+    public virtual DbSet<Plantilla> Plantillas { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -225,6 +215,35 @@ public partial class TicketsDbContext : IdentityDbContext<Usuario, IdentityRole,
             .HasForeignKey(d => d.FkDepartamento);
         });
 
+        modelBuilder.Entity<Plantilla>(entity =>
+        {
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.Nombre).HasColumnName("nombre");
+            entity.Property(e => e.Asunto).HasColumnName("asunto");
+            entity.Property(e => e.Descripcion).HasColumnName("descripcion");
+            entity.Property(e => e.FkCategoria).HasColumnName("fk_categoria");
+            entity.Property(e => e.Solucion).HasColumnName("solucion");
+            entity.Property(e => e.RegistroPropio_Razon).HasColumnName("registro_propio_razon");
+            entity.Property(e => e.AsignadoAProvedor).HasColumnName("asignado_a_provedor");
+            entity.Property(e => e.FkProvedor).HasColumnName("fk_provedor");
+            entity.Property(e => e.FkUsuario).HasColumnName("fk_usuario");
+
+            entity.HasOne(d => d.FkCategoriaNavigation).WithMany(p => p.Plantillas)
+                .HasForeignKey(d => d.FkCategoria)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_Plantillas_Categorias");
+
+            entity.HasOne(d => d.FkProveedorNavigation).WithMany(p => p.Plantillas)
+                .HasForeignKey(d => d.FkProvedor)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_Plantillas_Provedores");
+
+            entity.HasOne(d => d.FkUsuarioNavigation).WithMany(p => p.Plantillas)
+                .HasForeignKey(d => d.FkUsuario)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("FK_Plantillas_Usuarios");
+        });
+
         modelBuilder.Entity<Proveedor>(entity =>
         {
             entity.Property(e => e.Id).HasColumnName("id");
@@ -233,6 +252,33 @@ public partial class TicketsDbContext : IdentityDbContext<Usuario, IdentityRole,
             entity.Property(e => e.Activo).HasColumnName("activo");
 
             entity.HasOne(d => d.FkCategoriaNavigation).WithMany(d => d.Proveedores).HasForeignKey(d => d.FkCategoria);
+        });
+
+        modelBuilder.Entity<Notificacion>(entity =>
+        {
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.FkAnalista).HasColumnName("fk_analista");
+            entity.Property(e => e.FkUsuario).HasColumnName("fk_usuario");
+            entity.Property(e => e.FkTicket).HasColumnName("fk_ticket");
+            entity.Property(e => e.Mensaje).HasColumnName("mensaje");
+            entity.Property(e => e.Leida).HasColumnName("leida");
+            entity.Property(e => e.Fecha).HasColumnName("fecha");
+
+            entity.HasOne(d => d.FkUsuarioNavigation).WithMany(p => p.NotificacionFkUsuarioNavigations)
+                .HasForeignKey(d => d.FkUsuario)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_Notificaciones_Usuarios");
+
+            entity.HasOne(d => d.FkAnalistaNavigation).WithMany(p => p.NotificacionFkAnalistaNavigations)
+                .HasForeignKey(d => d.FkAnalista)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_Notificaciones_Analistas");
+
+
+            entity.HasOne(d => d.FkTicketNavigation).WithMany(p => p.NotificacionesTickets)
+                .HasForeignKey(d => d.FkTicket)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_Notificaciones_Tickets");
         });
 
         modelBuilder.Entity<ComentarioTicket>(entity =>

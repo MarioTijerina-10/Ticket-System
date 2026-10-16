@@ -1,0 +1,151 @@
+@using TicketsApp.DTO.Plantillas
+@inject IDialogService DialogService
+
+@if (Model is null)
+{
+    <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
+        No hay información de la plantilla para mostrar.
+    </MudAlert>
+}
+else
+{
+    <MudCard Elevation="2" Class="rounded-lg">
+        <MudCardHeader>
+            <CardHeaderContent>
+                <MudText Typo="Typo.h5">@Show(Model.Nombre)</MudText>
+                <MudText Typo="Typo.caption" Color="Color.Secondary">Plantilla #@Model.Id</MudText>
+            </CardHeaderContent>
+            <CardHeaderActions>
+                @if (!string.IsNullOrWhiteSpace(Model.NomCategoria))
+                {
+                    <MudChip T="string" Color="Color.Primary" Variant="Variant.Outlined" Icon="@Icons.Material.Filled.Category"
+                             Size="Size.Small">
+                        @Model.NomCategoria
+                    </MudChip>
+                }
+            </CardHeaderActions>
+        </MudCardHeader>
+
+        <MudDivider />
+
+        <MudCardContent>
+            <MudGrid Spacing="3">
+
+                <MudItem xs="12">
+                    <MudText Typo="Typo.overline" Color="Color.Secondary">Asunto</MudText>
+                    <MudText Typo="Typo.subtitle1">@Show(Model.Asunto)</MudText>
+                </MudItem>
+
+                <MudItem xs="12">
+                    <MudText Typo="Typo.overline" Color="Color.Secondary">Descripción</MudText>
+                    <MudText Typo="Typo.body1" Style="white-space: pre-wrap;">@Show(Model.Descripcion)</MudText>
+                </MudItem>
+
+                <MudItem xs="12">
+                    <MudPaper Outlined="true" Class="pa-3">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                            <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" Size="Size.Small" />
+                            <MudText Typo="Typo.overline" Color="Color.Secondary">Solución</MudText>
+                        </MudStack>
+                        <MudText Typo="Typo.body1" Style="white-space: pre-wrap;">@Show(Model.Solucion)</MudText>
+                    </MudPaper>
+                </MudItem>
+
+                @if (!string.IsNullOrWhiteSpace(Model.RegistroPropio_Razon))
+                {
+                    <MudItem xs="12">
+                        <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Icon="@Icons.Material.Filled.Info">
+                            <MudText Typo="Typo.subtitle2">Razón de registro propio</MudText>
+                            <MudText Typo="Typo.body2" Style="white-space: pre-wrap;">@Model.RegistroPropio_Razon</MudText>
+                        </MudAlert>
+                    </MudItem>
+                }
+
+                <MudItem xs="12">
+                    <MudDivider />
+                </MudItem>
+
+                <MudItem xs="12" sm="6">
+                    <MudText Typo="Typo.overline" Color="Color.Secondary">Asignado a proveedor</MudText>
+                    <div>
+                        @if (Model.AsignadoAProvedor)
+                        {
+                            <MudChip T="string" Color="Color.Success" Size="Size.Small" Icon="@Icons.Material.Filled.Check">Sí
+                            </MudChip>
+                        }
+                        else
+                        {
+                            <MudChip T="string" Color="Color.Default" Size="Size.Small" Icon="@Icons.Material.Filled.Close">No
+                            </MudChip>
+                        }
+                    </div>
+                </MudItem>
+
+                @if (Model.AsignadoAProvedor)
+                {
+                    <MudItem xs="12" sm="6">
+                        <MudText Typo="Typo.overline" Color="Color.Secondary">Proveedor</MudText>
+                        <MudText Typo="Typo.body1">@Show(Model.NomProveedor)</MudText>
+                    </MudItem>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(Model.FkUsuario))
+                {
+                    <MudItem xs="12" sm="6">
+                        <MudText Typo="Typo.overline" Color="Color.Secondary">Usuario</MudText>
+                        <MudText Typo="Typo.body1">@Model.FkUsuario</MudText>
+                    </MudItem>
+                }
+
+            </MudGrid>
+        </MudCardContent>
+
+        @if (OnEdit.HasDelegate || OnDelete.HasDelegate)
+        {
+            <MudDivider />
+            <MudCardActions Class="pa-3 justify-end">
+                @if (OnDelete.HasDelegate)
+                {
+                    <MudButton Variant="Variant.Outlined" Color="Color.Error" StartIcon="@Icons.Material.Filled.Delete" Class="me-5"
+                               OnClick="ConfirmDeleteAsync">
+                        Eliminar
+                    </MudButton>
+                }
+                @if (OnEdit.HasDelegate)
+                {
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Edit"
+                               OnClick="() => OnEdit.InvokeAsync(Model)">
+                        Editar
+                    </MudButton>
+                }
+            </MudCardActions>
+        }
+    </MudCard>
+}
+
+@code {
+    [Parameter] public GetPlantilla? Model { get; set; }
+
+    [Parameter] public EventCallback<GetPlantilla> OnEdit { get; set; }
+
+    [Parameter] public EventCallback<int> OnDelete { get; set; }
+
+    private static string Show(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? "—" : value;
+
+    private async Task ConfirmDeleteAsync()
+    {
+        if (Model is null) return;
+
+        bool? confirmed = await DialogService.ShowMessageBoxAsync(
+            title: "Eliminar plantilla",
+            message: $"¿Seguro que deseas eliminar la plantilla \"{Model.Nombre}\"? Esta acción no se puede deshacer.",
+            yesText: "Eliminar",
+            cancelText: "Cancelar");
+
+        if (confirmed == true)
+        {
+            await OnDelete.InvokeAsync(Model.Id);
+        }
+    }
+}

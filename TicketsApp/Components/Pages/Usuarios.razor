@@ -1,14 +1,14 @@
 ﻿@page "/Usuarios"
 @inherits ComponenteBase
-@attribute [Authorize]
+@attribute [Authorize(Roles = "Admin")]
 @using System.Threading.Tasks
-@using System.Text.Json
 @using Microsoft.AspNetCore.Authorization
 @using TicketsApp.DTO.CamposEstaticos
 @using TicketsApp.DTO.Usuarios
 @using TicketsApp.DTO.Departamentos
 @using TicketsApp.Services
 @inject ServicioUsuarios _ServicioUsuarios
+@inject ServicioUnidades _ServicioUnidades
 @inject ServicioCamposEstaticos _ServicioDatos
 @inject ServicioDepartamentos _ServicioDepartamentos
 @inject IDialogService _ServicioDialogo
@@ -29,12 +29,11 @@
     string usuarioActualizadoId = "";
     private MudForm _form_editar = null!;
     private MudDataGrid<GetUsuario> dataGrid = null!;
-    private DialogOptions dialogOptions = new DialogOptions
+    private DialogOptions dialogOptions => new()
     {
-        Position = DialogPosition.Center,
-        CloseButton = true,
-        MaxWidth =
-    MaxWidth.ExtraLarge
+        MaxWidth = MaxWidth.Large,
+        FullWidth = true,
+        FullScreen = isMobile
     };
 
     protected override async Task OnInitializedAsync()
@@ -44,8 +43,8 @@
 
         //DATOS PARA EL FORMULARIO
         roles = await _ServicioDatos.GetRoles();
-        unidades = await _ServicioDatos.GetUnidades();
-        departamentos = (await _ServicioDepartamentos.GetAll()).data = departamentos;
+        unidades = (await _ServicioUnidades.GetAllUnidades()).data ?? unidades;
+        departamentos = (await _ServicioDepartamentos.GetAll()).data ?? departamentos;
 
         //VALORES DEFAULT PARA SELECTORES NUEVO
         if (unidades.Any())
@@ -75,14 +74,6 @@
         await dataGrid.ReloadServerData();
     }
 
-    protected override async Task OnAfterRenderAsync(bool firstrender)
-    {
-    }
-
-    protected override async Task OnParametersSetAsync()
-    {
-    }
-
     private async Task ShowDialogoCrear()
     {
         await modal_UsuarioNuevo.ShowAsync("Usuario Nuevo", dialogOptions);
@@ -103,12 +94,28 @@
     }
 }
 
-@* BOTONES *@
-<MudButton Color="Color.Info" @onclick="ShowDialogoCrear" StartIcon="@Icons.Material.Filled.AddCircle">Añadir
-    Usuario</MudButton>
+<MudBreakpointProvider OnBreakpointChanged="OnBreakpointChanged" />
 
-    <MudDataGrid T="GetUsuario" Items="@usuariosFiltrados" SortMode="SortMode.Multiple" Filterable="true" @ref="dataGrid"
-                 FilterMode="@DataGridFilterMode.ColumnFilterMenu">
+@code {
+    bool isMobile;
+
+    private void OnBreakpointChanged(Breakpoint bp)
+    {
+        isMobile = bp <= Breakpoint.Sm;
+        StateHasChanged();
+    }
+}
+
+@* BOTONES *@
+<MudButton Color="Color.Info" Variant="Variant.Filled" Class="mb-3" FullWidth="@isMobile" OnClick="ShowDialogoCrear"
+           StartIcon="@Icons.Material.Filled.AddCircle">
+    Añadir Usuario
+</MudButton>
+
+<div class="grid-responsive">
+    <MudDataGrid T="GetUsuario" Items="@usuariosFiltrados" SortMode="SortMode.Multiple" Filterable="true"
+                 @ref="dataGrid" FilterMode="@DataGridFilterMode.ColumnFilterMenu" FixedHeader="true"
+                 Height="calc(100vh - 220px)" Dense="@isMobile">
         <ToolBarContent>
             <MudText Typo="Typo.h6">Usuarios Registrados</MudText>
         </ToolBarContent>
@@ -139,7 +146,7 @@
                     </MudSelect>
                 </FilterTemplate>
             </TemplateColumn>
-            <TemplateColumn Title="Departamento" Filterable="true" Sortable="true">
+            <TemplateColumn Title="Departamento" Filterable="true" Sortable="true" Hidden="@isMobile">
                 <CellTemplate Context="x">
                     @x.Item.Departamento
                 </CellTemplate>
@@ -154,7 +161,7 @@
                     </MudSelect>
                 </FilterTemplate>
             </TemplateColumn>
-            <TemplateColumn Title="Unidad" Filterable="true" Sortable="true">
+            <TemplateColumn Title="Unidad" Filterable="true" Sortable="true" Hidden="@isMobile">
                 <CellTemplate Context="x">
                     @x.Item.Unidad
                 </CellTemplate>
@@ -169,22 +176,31 @@
                     </MudSelect>
                 </FilterTemplate>
             </TemplateColumn>
-            <PropertyColumn Property="x => x.Correo" Filterable="false"></PropertyColumn>
-            <TemplateColumn>
+            <PropertyColumn Property="x => x.Correo" Filterable="false" Hidden="@isMobile" />
+            <TemplateColumn Title="Acciones" StickyRight="true">
                 <CellTemplate Context="x">
-                    <MudStack Row>
-                        <MudButton Size="@Size.Medium" Color="Color.Warning" OnClick="() => CofirmarEliminacion(x.Item.Id)"
-                                   EndIcon="@Icons.Material.Filled.DeleteForever">
-                            Eliminar</MudButton>
-                            <MudButton Size="@Size.Medium" Color="Color.Info" OnClick="() => ShowDialogoActualizar(x.Item)"
-                                       EndIcon="@Icons.Material.Filled.Edit">
-                                Editar
-                            </MudButton>
-                        </MudStack>
-                    </CellTemplate>
-                </TemplateColumn>
-            </Columns>
-        </MudDataGrid>
+                    <MudStack Row Spacing="1" Wrap="Wrap.NoWrap">
+                        @if (isMobile)
+                        {
+                            <MudIconButton Size="Size.Small" Color="Color.Warning"
+                                           Icon="@Icons.Material.Filled.DeleteForever"
+                                           OnClick="() => CofirmarEliminacion(x.Item.Id)" />
+                            <MudIconButton Size="Size.Small" Color="Color.Info" Icon="@Icons.Material.Filled.Edit"
+                                           OnClick="() => ShowDialogoActualizar(x.Item)" />
+                        }
+                        else
+                        {
+                            <MudButton Color="Color.Warning" EndIcon="@Icons.Material.Filled.DeleteForever"
+                                       OnClick="() => CofirmarEliminacion(x.Item.Id)">Eliminar</MudButton>
+                            <MudButton Color="Color.Info" EndIcon="@Icons.Material.Filled.Edit"
+                                       OnClick="() => ShowDialogoActualizar(x.Item)">Editar</MudButton>
+                        }
+                    </MudStack>
+                </CellTemplate>
+            </TemplateColumn>
+        </Columns>
+    </MudDataGrid>
+</div>
 
 @code {
     //CONFIRMACION PARA ELIMINAR USUARIO
@@ -209,51 +225,51 @@
 <MudDialog @ref="modal_UsuarioNuevo">
     <DialogContent>
         <MudForm @ref="_form_Crear" Model="@nuevoUsuario">
-            <MudStack Row Spacing="7" Class="pb-3">
-                <MudTextField Label="Usuario" @bind-Value="nuevoUsuario.Usuario1" Required Variant="Variant.Outlined"
-                              MaxLength="25">
-                </MudTextField>
-                <MudTextField Label="Contraseña" @bind-Value="nuevoUsuario.Contraseña" Required
-                              Variant="Variant.Outlined" MaxLength="25">
-                </MudTextField>
-                <MudTextField Label="Nombre Completo" @bind-Value="nuevoUsuario.Nombre" Required
-                              Variant="Variant.Outlined" MaxLength="50">
-                </MudTextField>
-            </MudStack>
-            <MudStack Row Spacing="7" Class="pb-3">
-                <MudTextField Label="Correo" @bind-Value="nuevoUsuario.Correo" Variant="Variant.Outlined"
-                              MaxLength="50">
-                </MudTextField>
-                <MudSelect T="string" @bind-Value="nuevoUsuario.Rol" Label="Rol" Required Variant="Variant.Outlined">
-                    @foreach (var x in roles)
-                    {
-                        <MudSelectItem Value="x.Name">@x.Name</MudSelectItem>
-                    }
-                </MudSelect>
-                <MudSelect T="int?" @bind-Value="unidadSeleccionada" Label="Unidad" Required Variant="Variant.Outlined"
-                           Disabled="!ExistenUnidades">
-                    @foreach (var x in unidades)
-                    {
-                        <MudSelectItem Value="@((int?)x.Id)">@x.Nombre</MudSelectItem>
-                    }
-                </MudSelect>
-            </MudStack>
-            <MudStack Row Spacing="7" Class="pb-3">
-                <MudSelect T="int?" @bind-Value="departamentoSeleccionado" Label="Departamento" Required
-                           Variant="Variant.Outlined" Disabled="!ExistenDepartamentos">
-                    @foreach (var x in departamentos)
-                    {
-                        <MudSelectItem Value="@((int?)x.Id)">@x.Nombre</MudSelectItem>
-                    }
-                </MudSelect>
-            </MudStack>
-            <MudStack Row Spacing="7" Class="pb-3">
-                <MudExpansionPanel>
-                    @* <MudSelect T="string">
-                        <MudSelectItem Value="Analistas.VerObservaciones">Ver Observaciones</MudSelectItem>
-                    </MudSelect> *@
-                </MudExpansionPanel>
-            </MudStack>
+            <MudGrid Spacing="2" Class="pb-3">
+                <MudItem xs="12" sm="6" md="4">
+                    <MudTextField Label="Usuario" @bind-Value="nuevoUsuario.Usuario1" Required
+                                  RequiredError="Campo Requerido.." Variant="Variant.Outlined" MaxLength="25" />
+                </MudItem>
+                <MudItem xs="12" sm="6" md="4">
+                    <MudTextField Label="Contraseña" @bind-Value="nuevoUsuario.Contraseña" Required
+                                  RequiredError="Campo Requerido.." Variant="Variant.Outlined" MaxLength="25" />
+                </MudItem>
+                <MudItem xs="12" sm="6" md="4">
+                    <MudTextField Label="Nombre Completo" @bind-Value="nuevoUsuario.Nombre" Required
+                                  RequiredError="Campo Requerido.." Variant="Variant.Outlined" MaxLength="50" />
+                </MudItem>
+                <MudItem xs="12" sm="6" md="4">
+                    <MudTextField Label="Correo" @bind-Value="nuevoUsuario.Correo" Variant="Variant.Outlined"
+                                  MaxLength="50" />
+                </MudItem>
+                <MudItem xs="12" sm="6" md="4">
+                    <MudSelect T="string" @bind-Value="nuevoUsuario.Rol" Label="Rol" Required
+                               RequiredError="Campo Requerido.." Variant="Variant.Outlined">
+                        @foreach (var x in roles)
+                        {
+                            <MudSelectItem Value="x.Name">@x.Name</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="4">
+                    <MudSelect T="int?" @bind-Value="unidadSeleccionada" Label="Unidad" Required
+                               RequiredError="Campo Requerido.." Variant="Variant.Outlined" Disabled="!ExistenUnidades">
+                        @foreach (var x in unidades)
+                        {
+                            <MudSelectItem Value="@((int?)x.Id)">@x.Nombre</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="4">
+                    <MudSelect T="int?" @bind-Value="departamentoSeleccionado" Label="Departamento" Required
+                               RequiredError="Campo Requerido.." Variant="Variant.Outlined" Disabled="!ExistenDepartamentos">
+                        @foreach (var x in departamentos)
+                        {
+                            <MudSelectItem Value="@((int?)x.Id)">@x.Nombre</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+            </MudGrid>
         </MudForm>
     </DialogContent>
     <DialogActions>
@@ -301,49 +317,56 @@
 <MudDialog @ref="modal_UsuarioActualizado">
     <DialogContent>
         <MudForm @ref="_form_editar" Model="@usuarioActualizado">
-            <MudStack Row Spacing="7" Class="pb-3">
-                <MudTextField Label="Usuario" @bind-Value="usuarioActualizado.Usuario1" Required
-                              Variant="Variant.Outlined" MaxLength="25">
-                </MudTextField>
-                <MudTextField Label="Contraseña" @bind-Value="usuarioActualizado.Contraseña" Required
-                              Variant="Variant.Outlined" MaxLength="25">
-                </MudTextField>
-                <MudTextField Label="Nombre Completo" @bind-Value="usuarioActualizado.Nombre" Required
-                              Variant="Variant.Outlined" MaxLength="50">
-                </MudTextField>
-            </MudStack>
-            <MudStack Row Spacing="7" Class="pb-3">
-                <MudTextField Label="Correo" @bind-Value="usuarioActualizado.Correo" Variant="Variant.Outlined"
-                              MaxLength="50">
-                </MudTextField>
-                <MudSelect T="string" @bind-Value="usuarioActualizado.Rol" Label="Rol" Required
-                           Variant="Variant.Outlined">
-                    @foreach (var x in roles)
-                    {
-                        <MudSelectItem Value="@x.Name">@x.Name</MudSelectItem>
-                    }
-                </MudSelect>
-                <MudSelect T="int?" @bind-Value="unidadSeleccionada" Label="Unidad" Required Variant="Variant.Outlined"
-                           Disabled="!ExistenUnidades">
-                    @foreach (var x in Enum.GetValues<Enumerables.Unidades>())
-                    {
-                        <MudSelectItem Value="@((int?)x)">@x</MudSelectItem>
-                    }
-                </MudSelect>
-            </MudStack>
-            <MudStack Row Spacing="7" Class="pb-3">
-                <MudSelect T="int?" @bind-Value="departamentoSeleccionado" Label="Departamento" Required
-                           Variant="Variant.Outlined" Disabled="!ExistenDepartamentos">
-                    @foreach (var x in departamentos)
-                    {
-                        <MudSelectItem Value="@((int?)x.Id)">@x.Nombre</MudSelectItem>
-                    }
-                </MudSelect>
-            </MudStack>
+            <MudGrid Spacing="2" Class="pb-3">
+                <MudItem xs="12" sm="6" md="4">
+                    <MudTextField Label="Usuario" @bind-Value="usuarioActualizado.Usuario1" Required
+                                  RequiredError="Campo Requerido.." Variant="Variant.Outlined" MaxLength="25" />
+                </MudItem>
+                <MudItem xs="12" sm="6" md="4">
+                    <MudTextField Label="Contraseña" @bind-Value="usuarioActualizado.Contraseña" Required
+                                  RequiredError="Campo Requerido.." Variant="Variant.Outlined" MaxLength="25" />
+                </MudItem>
+                <MudItem xs="12" sm="6" md="4">
+                    <MudTextField Label="Nombre Completo" @bind-Value="usuarioActualizado.Nombre" Required
+                                  RequiredError="Campo Requerido.." Variant="Variant.Outlined" MaxLength="50" />
+                </MudItem>
+                <MudItem xs="12" sm="6" md="4">
+                    <MudTextField Label="Correo" @bind-Value="usuarioActualizado.Correo" Variant="Variant.Outlined"
+                                  MaxLength="50" />
+                </MudItem>
+                <MudItem xs="12" sm="6" md="4">
+                    <MudSelect T="string" @bind-Value="usuarioActualizado.Rol" Label="Rol" Required
+                               RequiredError="Campo Requerido.." Variant="Variant.Outlined">
+                        @foreach (var x in roles)
+                        {
+                            <MudSelectItem Value="@x.Name">@x.Name</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="4">
+                    <MudSelect T="int?" @bind-Value="unidadSeleccionada" Label="Unidad" Required
+                               RequiredError="Campo Requerido.." Variant="Variant.Outlined" Disabled="!ExistenUnidades">
+                        @foreach (var x in unidades)
+                        {
+                            <MudSelectItem Value="@((int?)x.Id)">@x.Nombre</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="4">
+                    <MudSelect T="int?" @bind-Value="departamentoSeleccionado" Label="Departamento" Required
+                               RequiredError="Campo Requerido.." Variant="Variant.Outlined" Disabled="!ExistenDepartamentos">
+                        @foreach (var x in departamentos)
+                        {
+                            <MudSelectItem Value="@((int?)x.Id)">@x.Nombre</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+            </MudGrid>
         </MudForm>
     </DialogContent>
     <DialogActions>
-        <MudButton Color="Color.Primary" OnClick="ActualizarUsuario">Actualizar</MudButton>
+        <MudButton Color="Color.Primary" OnClick="ActualizarUsuario" StartIcon="@Icons.Material.Filled.Save">Actualizar
+        </MudButton>
     </DialogActions>
 </MudDialog>
 
@@ -376,10 +399,6 @@
 
 @* FILTRAR USUARIOS *@
 @code {
-    string? nombreFiltrado = null;
-    string? rolFiltrado = null;
-    int? departamentoFiltrado = null;
-    int? unidadFiltrado = null;
 
     protected override async Task filtrar()
     {

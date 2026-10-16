@@ -3,44 +3,50 @@
 @inject IJSRuntime _Js
 @inject NavigationManager _Navegador
 
-<MudNavMenu Class="mt-4">
+<MudNavMenu Class="mt-4" Color="Color.Info" Bordered="true">
     <MudStack>
-        <MudButton Href="/Inicio" Match="NavLinkMatch.Prefix" EndIcon="@Icons.Material.Filled.Home"
-                   OnClick="DrawerToggle">
-            Inicio
-        </MudButton>
+        <AuthorizeView Roles="Admin, Analista">
+            <Authorized>
+                <MudNavLink Href="/Inicio" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Home" Ripple>
+                    Inicio
+                </MudNavLink>
+            </Authorized>
+        </AuthorizeView>
+        <MudNavLink Href="/Tickets" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.LocalActivity" ForceLoad>
+            Tickets
+        </MudNavLink>
+        <MudNavLink Href="/UsuarioTickets" Icon="@Icons.Material.Filled.EventNote">Nuevo
+            Tickets
+        </MudNavLink>
+        <AuthorizeView Roles="Admin, Analista">
+            <Authorized>
+                <MudNavLink Href="/PlantillasTickets" Icon="@Icons.Material.Filled.CreateNewFolder">
+                    Plantillas
+                </MudNavLink>
+                <MudNavGroup Title="Catalogos" Icon="@Icons.Material.Filled.Dataset">
+                    <MudNavLink Href="Proveedores" Icon="@Icons.Material.Filled.ContactEmergency">
+                        Proveedores
+                    </MudNavLink>
+                    <MudNavLink Href="/Unidades" Icon="@Icons.Material.Filled.Business">Unidades
+                    </MudNavLink>
+                    <MudNavLink Href="/Departamentos" Icon="@Icons.Material.Filled.Groups">
+                        Departamentos
+                    </MudNavLink>
+                    <MudNavLink Href="/Categorias" Icon="@Icons.Material.Filled.Category">
+                        Categorias
+                    </MudNavLink>
+                </MudNavGroup>
+            </Authorized>
+        </AuthorizeView>
         <AuthorizeView Roles="Admin">
             <Authorized>
-                <MudButton Href="Usuarios" Match="NavLinkMatch.Prefix" EndIcon="@Icons.Material.Filled.Person"
-                           OnClick="DrawerToggle">
-                    Usuarios</MudButton>
+                <MudNavLink Href="/Usuarios" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Person">
+                    Usuarios</MudNavLink>
                 </Authorized>
             </AuthorizeView>
-            <MudButton Href="UsuarioTickets" Match="NavLinkMatch.Prefix" EndIcon="@Icons.Material.Filled.EventNote"
-                       OnClick="DrawerToggle">Nuevo Tickets
-            </MudButton>
-
-            <AuthorizeView Roles="Admin, Analista">
-                <Authorized>
-                    <MudButton Href="Tickets" Match="NavLinkMatch.Prefix" EndIcon="@Icons.Material.Filled.LocalActivity"
-                               OnClick="DrawerToggle">Tickets
-                    </MudButton>
-                </Authorized>
-            </AuthorizeView>
-            <MudButton Href="Proveedores" Match="NavLinkMatch.Prefix" EndIcon="@Icons.Material.Filled.ContactEmergency"
-                       OnClick="DrawerToggle">
-                Proveedores
-            </MudButton>
-            <MudButton Href="Unidades" Match="NavLinkMatch.Prefix" EndIcon="@Icons.Material.Filled.Business"
-                       OnClick="DrawerToggle">Unidades</MudButton>
-            <MudButton Href="Categorias" Match="NavLinkMatch.Prefix" EndIcon="@Icons.Material.Filled.Category"
-                       OnClick="DrawerToggle">Categorias
-            </MudButton>
-            <MudButton Href="Departamentos" Match="NavLinkMatch.Prefix" EndIcon="@Icons.Material.Filled.Groups"
-                       OnClick="DrawerToggle">Departamentos
-            </MudButton>
-            <MudButton Onclick="CerrarSesion" EndIcon="@Icons.Material.Filled.ExitToApp" FullWidth="true">Cerrar Sesión
-            </MudButton>
+            <MudNavLink Onclick="CerrarSesion" Icon="@Icons.Material.Filled.ExitToApp">Cerrar
+                Sesión
+            </MudNavLink>
         </MudStack>
     </MudNavMenu>
 
@@ -54,6 +60,4 @@
             _Navegador.NavigateTo("/InicioDesesion", true);
         }
     }
-
-    [Parameter][Required] public EventCallback DrawerToggle { get; set; }
 }

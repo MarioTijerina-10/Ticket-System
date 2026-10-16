@@ -1,0 +1,322 @@
+@page "/PlantillasTickets"
+@attribute [Authorize(Roles = "Analista,Admin")]
+@inject ServicioPlantillas _ServicioPlantillas
+@inject ServicioCategorias _ServicioCategorias
+@inject ServicioProveedores _ServicioProveedores
+@inject AuthenticationStateProvider _Auth
+@inject ISnackbar _Snackbar
+@inject UserManager<Usuario> _UserManager
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using TicketsApp.Components.Razor_Components
+@using TicketsApp.DTO.Categorias
+@using TicketsApp.DTO.Plantillas
+@using TicketsApp.DTO.Proveedores
+
+<MudStack Row>
+    <MudText Typo="Typo.h6">Plantillas de Tickets</MudText>
+    <MudSpacer />
+    <MudButton Color="Color.Info" StartIcon="@Icons.Material.Filled.AddCircle" OnClick="@AbrirDialogo_PlantillaNueva">
+        Nueva Plantilla
+    </MudButton>
+</MudStack>
+
+@code {
+    [CascadingParameter(Name = "UserData")]
+    UserData UserData { get; set; } = new("", "", 0, 0, "", new());
+    private List<GetPlantilla> plantillas = new();
+    private List<GetCategorias> categorias = new();
+    private List<GetProveedor> proveedores = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await GetPlantillas();
+        await GetCategorias();
+        await GetProveedores();
+    }
+
+    private async Task GetPlantillas()
+    {
+        plantillas = (await _ServicioPlantillas.GetAll(UserData.Id)).data ?? plantillas;
+    }
+
+    private async Task GetCategorias()
+    {
+        categorias = (await _ServicioCategorias.GetCategorias()).data ?? categorias;
+    }
+    
+    private async Task GetProveedores()
+    {
+        proveedores = (await _ServicioProveedores.GetAll()).data ?? proveedores;
+    }
+}
+
+<MudPaper Class="pa-5 mt-5">
+    
+    <MudExpansionPanels MultiExpansion="true">
+        <MudGrid>
+            @foreach (var x in plantillas)
+            {
+                <MudItem md="6" sm="12">
+                    <MudExpansionPanel Text="@x.Nombre">
+                        <PlantillaDisplay Model="x" OnDelete="@EliminarPlantilla" OnEdit="@Abrir_ModalEditar" />
+                    </MudExpansionPanel>
+                </MudItem>
+            }
+        </MudGrid>
+    </MudExpansionPanels>
+</MudPaper>
+
+<MudDialog @ref="DialogoPlantillaNueva">
+    <DialogContent>
+        <MudForm @ref="FormPlantillaNueva" Model="plantillaNueva" @bind-IsValid="_isValid" @bind-Errors="_errors">
+            <MudGrid>
+                <MudItem xs="12" md="6">
+                    <MudTextField @bind-Value="plantillaNueva.Nombre" For="@(() => plantillaNueva.Nombre)"
+                                  Label="Nombre" Required="true" RequiredError="El nombre es obligatorio" Immediate="true"
+                                  MaxLength="100" Counter="100" Variant="Variant.Outlined" />
+                </MudItem>
+
+                <MudItem xs="12" md="6">
+                    <MudTextField @bind-Value="plantillaNueva.Asunto" For="@(() => plantillaNueva.Asunto)"
+                                  Label="Asunto" Required="true" RequiredError="El asunto es obligatorio" Immediate="true"
+                                  MaxLength="200" Counter="200" Variant="Variant.Outlined" />
+                </MudItem>
+
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="plantillaNueva.Descripcion" For="@(() => plantillaNueva.Descripcion)"
+                                  Label="Descripción" Lines="4" MaxLines="10" MaxLength="200" Counter="200" Immediate="true"
+                                  Variant="Variant.Outlined" />
+                </MudItem>
+
+                <MudItem xs="12" md="6">
+                    <MudSelect T="int?" @bind-Value="plantillaNueva.FkCategoria"
+                               For="@(() => plantillaNueva.FkCategoria)" Label="Categoría" Required="true"
+                               RequiredError="Selecciona una categoría" Clearable="true" Variant="Variant.Outlined"
+                               Immediate="true">
+                        @foreach (var categoria in categorias)
+                        {
+                            <MudSelectItem T="int?" Value="@((int?)categoria.Id)">@categoria.Nombre</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="plantillaNueva.Solucion" For="@(() => plantillaNueva.Solucion)"
+                                  Label="Solución" MaxLength="200" Counter="200" Lines="4" MaxLines="10"
+                                  Variant="Variant.Outlined" Immediate="true" />
+                </MudItem>
+
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="plantillaNueva.RegistroPropio_Razon"
+                                  For="@(() => plantillaNueva.RegistroPropio_Razon)" Label="Razón de registro propio" Lines="2"
+                                  MaxLength="200" Counter="200" Variant="Variant.Outlined" Immediate="true" />
+                </MudItem>
+
+                <MudItem xs="12" md="6">
+                    <MudSwitch T="bool" Label="Asignado a proveedor?" Color="Color.Primary"
+                               ValueChanged="OnAsignadoAProvedorChanged" />
+                </MudItem>
+
+                @if (plantillaNueva.AsignadoAProvedor)
+                {
+                    <MudItem xs="12" md="6">
+                        <MudSelect T="int?" @bind-Value="plantillaNueva.FkProvedor" For="@(() => plantillaNueva.FkProvedor)"
+                                   Label="Proveedor" Required="true" RequiredError="Selecciona un proveedor" Clearable="true"
+                                   Variant="Variant.Outlined">
+                            @foreach (var proveedor in proveedores)
+                            {
+                                <MudSelectItem T="int?" Value="@((int?)proveedor.Id)">@proveedor.Nombre</MudSelectItem>
+                            }
+                        </MudSelect>
+                    </MudItem>
+                }
+
+                <MudItem xs="12" Class="d-flex justify-end gap-2">
+                    <MudButton Variant="Variant.Text" OnClick="Cancelar">Cancelar</MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@(!_isValid)" OnClick="Guardar">
+                        Guardar
+                    </MudButton>
+                </MudItem>
+            </MudGrid>
+        </MudForm>
+    </DialogContent>
+    <DialogActions>
+
+    </DialogActions>
+</MudDialog>
+
+
+@code {
+    private CrearPlantilla plantillaNueva = new();
+    private MudDialog DialogoPlantillaNueva = default!;
+    private string[] _errors = Array.Empty<string>();
+    private MudForm FormPlantillaNueva = default!;
+    private bool _isValid;
+
+    private void AbrirDialogo_PlantillaNueva()
+    {
+        DialogoPlantillaNueva.ShowAsync("Nueva Plantilla", new DialogOptions()
+        {
+            MaxWidth = MaxWidth.Medium
+        });
+    }
+
+    private void OnAsignadoAProvedorChanged(bool value)
+    {
+        plantillaNueva.AsignadoAProvedor = value;
+
+        // Si se desactiva, limpiamos el proveedor
+        if (!value)
+            plantillaNueva.FkProvedor = null;
+    }
+
+    private async Task Guardar()
+    {
+        await FormPlantillaNueva.ValidateAsync();
+
+        if (!FormPlantillaNueva.IsValid)
+            return;
+
+        plantillaNueva.FkUsuario = UserData.Id;
+        var respuesta = await _ServicioPlantillas.CreatePlantilla(plantillaNueva);
+        await GetPlantillas();
+        _Snackbar.Add(respuesta.mensaje, respuesta.exitoso ? Severity.Success : Severity.Error);
+
+        await DialogoPlantillaNueva.CloseAsync();
+    }
+
+    private void Cancelar()
+    {
+        plantillaNueva = new();
+        DialogoPlantillaNueva.CloseAsync();
+    }
+}
+
+@* DIALOGO PARA EDITAR PLANTILLAS *@
+
+<MudDialog @ref="DialogoEditarPlantilla">
+    <DialogContent>
+        <MudForm @ref="FormEditarPlantilla" Model="plantillaEditada" @bind-IsValid="_isValid" @bind-Errors="_errors">
+            <MudGrid>
+                <MudItem xs="12" md="6">
+                    <MudTextField @bind-Value="plantillaEditada.Nombre" For="@(() => plantillaEditada.Nombre)"
+                                  Label="Nombre" Required="true" RequiredError="El nombre es obligatorio" Immediate="true"
+                                  MaxLength="100" Counter="100" Variant="Variant.Outlined" />
+                </MudItem>
+
+                <MudItem xs="12" md="6">
+                    <MudTextField @bind-Value="plantillaEditada.Asunto" For="@(() => plantillaEditada.Asunto)"
+                                  Label="Asunto" Required="true" RequiredError="El asunto es obligatorio" Immediate="true"
+                                  MaxLength="200" Counter="200" Variant="Variant.Outlined" />
+                </MudItem>
+
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="plantillaEditada.Descripcion" For="@(() => plantillaEditada.Descripcion)"
+                                  Label="Descripción" Lines="4" MaxLines="10" MaxLength="200" Counter="200" Immediate="true"
+                                  Variant="Variant.Outlined" />
+                </MudItem>
+
+                <MudItem xs="12" md="6">
+                    <MudSelect T="int?" @bind-Value="plantillaEditada.FkCategoria"
+                               For="@(() => plantillaEditada.FkCategoria)" Label="Categoría" Required="true"
+                               RequiredError="Selecciona una categoría" Clearable="true" Variant="Variant.Outlined"
+                               Immediate="true">
+                        @foreach (var categoria in categorias)
+                        {
+                            <MudSelectItem T="int?" Value="@((int?)categoria.Id)">@categoria.Nombre</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="plantillaEditada.Solucion" For="@(() => plantillaEditada.Solucion)"
+                                  Label="Solución" MaxLength="200" Counter="200" Lines="4" MaxLines="10"
+                                  Variant="Variant.Outlined" Immediate="true" />
+                </MudItem>
+
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="plantillaEditada.RegistroPropio_Razon"
+                                  For="@(() => plantillaEditada.RegistroPropio_Razon)" Label="Razón de registro propio" Lines="2"
+                                  MaxLength="200" Counter="200" Variant="Variant.Outlined" Immediate="true" />
+                </MudItem>
+
+                <MudItem xs="12" md="6">
+                    <MudSwitch T="bool" Label="Asignado a proveedor?" Color="Color.Primary"
+                               ValueChanged="OnAsignadoAProvedorChanged" />
+                </MudItem>
+
+                @if (plantillaEditada.AsignadoAProvedor)
+                {
+                    <MudItem xs="12" md="6">
+                        <MudSelect T="int?" @bind-Value="plantillaEditada.FkProvedor"
+                                   For="@(() => plantillaEditada.FkProvedor)" Label="Proveedor" Required="true"
+                                   RequiredError="Selecciona un proveedor" Clearable="true" Variant="Variant.Outlined">
+                            @foreach (var proveedor in proveedores)
+                            {
+                                <MudSelectItem T="int?" Value="@((int?)proveedor.Id)">@proveedor.Nombre</MudSelectItem>
+                            }
+                        </MudSelect>
+                    </MudItem>
+                }
+
+                <MudItem xs="12" Class="d-flex justify-end gap-2">
+                    <MudButton Variant="Variant.Text" OnClick="Cancelar">Cancelar</MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@(!_isValid)"
+                               OnClick="EditarPlantilla">
+                        Editar
+                    </MudButton>
+                </MudItem>
+            </MudGrid>
+        </MudForm>
+    </DialogContent>
+    <DialogActions>
+
+    </DialogActions>
+</MudDialog>
+
+@code {
+    UpdatePlantilla plantillaEditada = new();
+    MudDialog DialogoEditarPlantilla = default!;
+    MudForm FormEditarPlantilla = default!;
+    int EditId;
+
+    private async Task Abrir_ModalEditar(GetPlantilla plantilla)
+    {
+        plantillaEditada.AsignadoAProvedor = plantilla.AsignadoAProvedor;
+        plantillaEditada.Asunto = plantilla.Asunto;
+        plantillaEditada.Descripcion = plantilla.Descripcion;
+        plantillaEditada.FkCategoria = plantilla.FkCategoria;
+        plantillaEditada.FkProvedor = plantilla.FkProvedor;
+        plantillaEditada.Nombre = plantilla.Nombre;
+        plantillaEditada.RegistroPropio_Razon = plantilla.RegistroPropio_Razon;
+        plantillaEditada.Solucion = plantilla.Solucion;
+        await DialogoEditarPlantilla.ShowAsync($"Editar Plantilla {plantilla.Nombre}", new DialogOptions()
+        {
+            MaxWidth = MaxWidth.Medium
+        });
+        EditId = plantilla.Id;
+    }
+
+    private async Task EditarPlantilla()
+    {
+        var respuesta = await _ServicioPlantillas.UpdatePlantilla(plantillaEditada, EditId);
+        EnseñarAlerta(respuesta.mensaje, respuesta.exitoso);
+
+        await GetPlantillas();
+        await DialogoEditarPlantilla.CloseAsync();
+        plantillaEditada = new();
+    }
+
+    private async Task EliminarPlantilla(int Id)
+    {
+        var respuesta = await _ServicioPlantillas.EliminarPlantilla(Id);
+        EnseñarAlerta(respuesta.mensaje, respuesta.exitoso);
+        await GetPlantillas();
+    }
+
+    private void EnseñarAlerta(string mensaje, bool exitoso)
+    {
+        _Snackbar.Add(mensaje, exitoso ? Severity.Success : Severity.Error);
+    }
+}

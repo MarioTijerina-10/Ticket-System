@@ -1,4 +1,6 @@
 @page "/Unidades"
+@attribute [Authorize(Roles = "Analista,Admin")]
+@using Microsoft.AspNetCore.Authorization
 @inject ServicioUnidades _Unidades
 @inject IDialogService _Dialogo
 @inject ISnackbar _Snackbar
@@ -68,8 +70,7 @@
     {
         await modal_nueva_unidad.ShowAsync("Nueva Unidad", new DialogOptions()
         {
-            CloseButton = true,
-            BackgroundClass = "blur"
+            MaxWidth = MaxWidth.Small
         });
     }
 }
@@ -77,7 +78,8 @@
 <MudDialog @ref="modal_nueva_unidad" TitleClass="dialog-title">
     <DialogContent>
         <MudForm @ref="form_nueva_unidad">
-            <MudTextField Class="m-4" @bind-value="nomUnidadNueva" Required Label="Nombre" />
+            <MudTextField Class="m-4" @bind-value="nomUnidadNueva" Required RequiredError="Campo Requerido.."
+                          Label="Nombre" />
         </MudForm>
     </DialogContent>
     <DialogActions>

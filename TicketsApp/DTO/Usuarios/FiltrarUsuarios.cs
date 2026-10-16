@@ -1,6 +1,3 @@
-using System;
-using MudBlazor;
-
 namespace TicketsApp.DTO.Usuarios;
 
 public class FiltroDeUsuarios

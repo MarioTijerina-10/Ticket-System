@@ -20,7 +20,9 @@ public class ServicioCorreo : IEmailService
         if (!MailboxAddress.TryParse(para, out var destino))
         {
             Console.WriteLine("Direccion invalida no se pudo parsear");
+            return;
         }
+
         correo.To.Add(destino);
         correo.Subject = asunto;
 

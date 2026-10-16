@@ -82,6 +82,10 @@ build_metadata.AdditionalFiles.CssScope =
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xOb3RGb3VuZC5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 
 
+[C:/Users/hp Laptop 14/Documents/TicketsApp-Mud/TicketsApp/Components/Pages/PlantillasTickets.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xQbGFudGlsbGFzVGlja2V0cy5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
 [C:/Users/hp Laptop 14/Documents/TicketsApp-Mud/TicketsApp/Components/Pages/Proveedores.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xQcm92ZWVkb3Jlcy5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 
@@ -98,16 +102,16 @@ build_metadata.AdditionalFiles.CssScope =
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xVc3VhcmlvVGlja2V0cy5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Users/hp Laptop 14/Documents/TicketsApp-Mud/TicketsApp/Components/Pages/Weather.razor]
-build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xXZWF0aGVyLnJhem9y
-build_metadata.AdditionalFiles.CssScope = 
-
 [C:/Users/hp Laptop 14/Documents/TicketsApp-Mud/TicketsApp/Components/Razor Components/Componente_DateTime.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xSYXpvciBDb21wb25lbnRzXENvbXBvbmVudGVfRGF0ZVRpbWUucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
 [C:/Users/hp Laptop 14/Documents/TicketsApp-Mud/TicketsApp/Components/Razor Components/Componente_FiltroDuracion.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xSYXpvciBDb21wb25lbnRzXENvbXBvbmVudGVfRmlsdHJvRHVyYWNpb24ucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/hp Laptop 14/Documents/TicketsApp-Mud/TicketsApp/Components/Razor Components/PlantillaDisplay.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xSYXpvciBDb21wb25lbnRzXFBsYW50aWxsYURpc3BsYXkucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
 [C:/Users/hp Laptop 14/Documents/TicketsApp-Mud/TicketsApp/Components/Redirects/RedirigirLogin.razor]

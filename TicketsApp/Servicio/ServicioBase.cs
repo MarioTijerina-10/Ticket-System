@@ -18,7 +18,7 @@ public class ServicioBase<S>
         Func<Task<T>> accion,
         string mensajeDeExito,
         string mensajeDeError,
-        Func<T, string>? mensajeDelegado = null)
+        Func<T, string>? mensajeDelegado = null, Func<string, string>? mensajeDelegadoError = null)
     {
         try
         {
@@ -36,12 +36,13 @@ public class ServicioBase<S>
         catch (Exception ex)
         {
             _log.LogError(ex, mensajeDeError);
+            Console.WriteLine(ex);
 
             return new MensajeDeRespuesta<T>
             {
                 exitoso = false,
                 data = default,
-                mensaje = mensajeDeError
+                mensaje = mensajeDelegadoError?.Invoke(ex.Message) ?? mensajeDeError
             };
         }
     }

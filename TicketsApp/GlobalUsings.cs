@@ -5,3 +5,5 @@ global using TicketsApp.Servicio;
 global using TicketsApp.Services;
 global using TicketsApp.DTO.CamposEstaticos;
 global using TicketsApp.Helper_Classes;
+global using System.Security.Claims;
+global using TicketsApp.DTO.Usuarios;

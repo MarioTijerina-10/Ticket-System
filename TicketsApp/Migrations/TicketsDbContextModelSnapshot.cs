@@ -323,6 +323,70 @@ namespace TicketsApp.Migrations
                         });
                 });
 
+            modelBuilder.Entity("TicketsApp.Models.Plantilla", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasColumnName("id");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("AsignadoAProvedor")
+                        .HasColumnType("bit")
+                        .HasColumnName("asignado_a_provedor");
+
+                    b.Property<string>("Asunto")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("asunto");
+
+                    b.Property<string>("Descripcion")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("descripcion");
+
+                    b.Property<DateTime?>("FechaCierre")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("fecha_cierre");
+
+                    b.Property<DateTime?>("FechaTomado")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("fecha_tomado");
+
+                    b.Property<int?>("FkCategoria")
+                        .HasColumnType("int")
+                        .HasColumnName("fk_categoria");
+
+                    b.Property<int?>("FkProvedor")
+                        .HasColumnType("int")
+                        .HasColumnName("fk_provedor");
+
+                    b.Property<string>("FkUsuario")
+                        .HasColumnType("nvarchar(450)")
+                        .HasColumnName("fk_usuario");
+
+                    b.Property<string>("Nombre")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("nombre");
+
+                    b.Property<string>("RegistroPropio_Razon")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("registro_propio_razon");
+
+                    b.Property<string>("Solucion")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("solucion");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FkCategoria");
+
+                    b.HasIndex("FkProvedor");
+
+                    b.HasIndex("FkUsuario");
+
+                    b.ToTable("Plantillas");
+                });
+
             modelBuilder.Entity("TicketsApp.Models.Proveedor", b =>
                 {
                     b.Property<int>("Id")
@@ -680,6 +744,31 @@ namespace TicketsApp.Migrations
                     b.Navigation("FkUsuarioNavigation");
                 });
 
+            modelBuilder.Entity("TicketsApp.Models.Plantilla", b =>
+                {
+                    b.HasOne("TicketsApp.Models.Categoria", "FkCategoriaNavigation")
+                        .WithMany("Plantillas")
+                        .HasForeignKey("FkCategoria")
+                        .HasConstraintName("FK_Plantillas_Categorias");
+
+                    b.HasOne("TicketsApp.Models.Proveedor", "FkProveedorNavigation")
+                        .WithMany("Plantillas")
+                        .HasForeignKey("FkProvedor")
+                        .HasConstraintName("FK_Plantillas_Provedores");
+
+                    b.HasOne("TicketsApp.Models.Usuario", "FkUsuarioNavigation")
+                        .WithMany("Plantillas")
+                        .HasForeignKey("FkUsuario")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .HasConstraintName("FK_Plantillas_Usuarios");
+
+                    b.Navigation("FkCategoriaNavigation");
+
+                    b.Navigation("FkProveedorNavigation");
+
+                    b.Navigation("FkUsuarioNavigation");
+                });
+
             modelBuilder.Entity("TicketsApp.Models.Proveedor", b =>
                 {
                     b.HasOne("TicketsApp.Models.Categoria", "FkCategoriaNavigation")
@@ -760,6 +849,8 @@ namespace TicketsApp.Migrations
 
             modelBuilder.Entity("TicketsApp.Models.Categoria", b =>
                 {
+                    b.Navigation("Plantillas");
+
                     b.Navigation("Proveedores");
 
                     b.Navigation("Tickets");
@@ -777,6 +868,8 @@ namespace TicketsApp.Migrations
 
             modelBuilder.Entity("TicketsApp.Models.Proveedor", b =>
                 {
+                    b.Navigation("Plantillas");
+
                     b.Navigation("Tickets");
                 });
 
@@ -795,6 +888,8 @@ namespace TicketsApp.Migrations
             modelBuilder.Entity("TicketsApp.Models.Usuario", b =>
                 {
                     b.Navigation("ComentarioTicketFkUsuarioNavigations");
+
+                    b.Navigation("Plantillas");
 
                     b.Navigation("TicketFkAnalistaNavigations");
 

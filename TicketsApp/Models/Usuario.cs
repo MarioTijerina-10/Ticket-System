@@ -24,6 +24,12 @@ public partial class Usuario : IdentityUser
 
     public virtual ICollection<ComentarioTicket> ComentarioTicketFkUsuarioNavigations { get; set; } = new List<ComentarioTicket>();
 
+    public virtual ICollection<Plantilla> Plantillas { get; set; } = new List<Plantilla>();
+
+    public virtual ICollection<Notificacion> NotificacionFkAnalistaNavigations { get; set; } = new List<Notificacion>();
+
+    public virtual ICollection<Notificacion> NotificacionFkUsuarioNavigations { get; set; } = new List<Notificacion>();
+
     public string? TiempoDeCierre_Promedio(DateTime inicio, DateTime final) =>
     TicketFkAnalistaNavigations.Any(t => t.Asignado_CierreParcial != null && t.Asignado_CierreParcial.HasValue && t.FechaInicio >= inicio && t.FechaInicio <= final) ?
     TimeSpan.FromMinutes(TicketFkAnalistaNavigations.Where(t => t.FkAnalista == Id && t.Asignado_CierreParcial.HasValue && t.FechaInicio >= inicio && t.FechaInicio <= final).Average(t => t.Asignado_CierreParcial!.Value.TotalMinutes)).ToString(@"d'd 'hh'h 'mm'm'")

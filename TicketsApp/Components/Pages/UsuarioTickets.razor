@@ -1,14 +1,16 @@
 @page "/UsuarioTickets"
 @attribute [Authorize]
+@using System.Security.Claims
+@using DTO.Comentarios
+@using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Authorization
 @using TicketsApp.Components.Razor_Components
 @using TicketsApp.DTO
-@using TicketsApp.DTO.Tickets
 @using TicketsApp.DTO.Categorias
-@using TicketsApp.DTO.Usuarios
+@using TicketsApp.DTO.Plantillas
 @using TicketsApp.DTO.Proveedores
-@using Microsoft.AspNetCore.Authorization
-@using DTO.Comentarios
+@using TicketsApp.DTO.Tickets
+@using TicketsApp.DTO.Usuarios
 
 @inject AuthenticationStateProvider _Auth
 @inject ILogger<UsuarioTickets> _Log
@@ -18,14 +20,19 @@
 @inject ServicioCategorias _ServicioCategorias
 @inject ServicioComentarios _ServicioComentarios
 @inject ServicioProveedores _ServicioProveedores
+@inject ServicioPlantillas _ServicioPlantillas
 @inject IDialogService _ServicioDialogo
 @inject UserManager<Usuario> _UserManager
 @inject NavigationManager _Nav
 @inject ISnackbar _Snackbar
 
 @code {
+    [CascadingParameter(Name = "UserData")]
+    UserData UserData { get; set; } = new("", "", 0, 0, "", new());
     CrearTickets ticketNuevo = new();
+    GetPlantilla plantilla = new();
     List<GetTickets> tickets = new();
+    List<GetPlantilla> plantillas = new();
     List<GetUsuario> usuarios = new();
     List<GetProveedor> proveedores = new();
     int? ticketsAbiertos = new();
@@ -34,9 +41,11 @@
     int? ticketsCerrados = new();
     int? categoriaSeleccionada = null;
     List<GetCategorias> categorias = new();
-    Usuario usuario = new();
     MudForm formTicketNuevo = null!;
     bool EsTicketPropio = false;
+
+    @* Evita doble envio y muestra estado de carga en el boton *@
+    bool enviando = false;
 
     @* Usuaurio Seleccionado en Busqueda *@
     GetUsuario? usuarioSeleccionado = null;
@@ -44,30 +53,25 @@
     @* Proveedor Seleccionado en Busqueda *@
     GetProveedor? proveedorSeleccionado = null;
 
-    @* Error desplegado en el Log *@
-    Exception error = null!;
-
 
     protected override async Task OnInitializedAsync()
     {
-        var EstadoAuth = await _Auth.GetAuthenticationStateAsync();
-        var EstadoUsuario = EstadoAuth.User;
-        usuario = (await _UserManager.GetUserAsync(EstadoUsuario))!;
 
         await GetTickets();
         await GetUsuarios();
         await GetCategorias();
         await GetProveedores();
+        await GetPlantillas();
     }
 
     private async Task GetTickets()
     {
         tickets = (await _ServicioTickets.GetAll()).data!;
 
-        ticketsAbiertos = tickets.Where(t => t.FkEstatus == 1 && t.FkUsuario == usuario.Id).Count();
-        ticketsEnProceso = tickets.Where(t => t.FkEstatus == 2 && t.FkUsuario == usuario.Id).Count();
-        ticketsCerradosParcial = tickets.Where(t => t.FkEstatus == 3 && t.FkUsuario == usuario.Id).Count();
-        ticketsCerrados = tickets.Where(t => t.FkEstatus == 4 && t.FkUsuario == usuario.Id).Count();
+        ticketsAbiertos = tickets.Where(t => t.FkEstatus == 1 && t.FkUsuario == UserData.Id).Count();
+        ticketsEnProceso = tickets.Where(t => t.FkEstatus == 2 && t.FkUsuario == UserData.Id).Count();
+        ticketsCerradosParcial = tickets.Where(t => t.FkEstatus == 3 && t.FkUsuario == UserData.Id).Count();
+        ticketsCerrados = tickets.Where(t => t.FkEstatus == 4 && t.FkUsuario == UserData.Id).Count();
     }
 
     private async Task GetUsuarios()
@@ -79,7 +83,6 @@
     private async Task GetCategorias()
     {
         categorias = (await _ServicioCategorias.GetCategorias()).data ?? categorias;
-        categoriaSeleccionada = categorias.Any() ? categorias.First().Id : null;
     }
 
     private async Task GetProveedores()
@@ -87,179 +90,261 @@
         var proveedoresRespuesta = (await _ServicioProveedores.GetAll()).data;
         proveedores = proveedoresRespuesta != null ? proveedoresRespuesta : new();
     }
+    
+    private async Task GetPlantillas()
+    {
+        var plantillasRespuesta = (await _ServicioPlantillas.GetAll(UserData.Id)).data;
+        plantillas = plantillasRespuesta != null ? plantillasRespuesta : new(
+        );
+    }
 }
 
 <MudCard Elevation="1" Outlined="true">
     <MudCardHeader>
         <CardHeaderContent>
-            <MudStack Row>
-                <MudText Typo="Typo.h6" Class="flex-1">Nuevo Ticket</MudText>
-
-                <MudToggleGroup T="bool" Value="@EsTicketPropio" ValueChanged="@CambiarTipoDeRegistro"
-                                Color="Color.Info" Class="flex-1">
-                    <MudToggleItem Value="false">Usuario</MudToggleItem>
-                    <MudToggleItem Value="true">Analista</MudToggleItem>
-                </MudToggleGroup>
-            </MudStack>
+            <MudGrid Spacing="2" Class="align-center">
+                <MudItem xs="12" sm="6">
+                    <MudText Typo="Typo.h6">Nuevo Ticket</MudText>
+                </MudItem>
+                <AuthorizeView Roles="Analista,Admin">
+                    <Authorized Context="authContext">
+                        <MudItem xs="12" sm="6" Class="d-flex justify-start justify-sm-end">
+                            <MudToggleGroup T="bool" Value="@EsTicketPropio" ValueChanged="@CambiarTipoDeRegistro"
+                                            Color="Color.Info" CheckMark="true" Disabled="@enviando">
+                                <MudToggleItem Value="false">Usuario</MudToggleItem>
+                                <MudToggleItem Value="true">Analista</MudToggleItem>
+                            </MudToggleGroup>
+                        </MudItem>
+                    </Authorized>
+                </AuthorizeView>
+            </MudGrid>
+            @if (EsTicketPropio)
+            {
+                <MudDivider Class="mt-4 mb-4" />
+                <MudSelect T="int?" Value="plantillaId" ValueChanged="UsarPlantilla" Clearable
+                           OnClearButtonClick="@LimpiarPlantilla" Label="Plantilla" Variant="Variant.Filled"
+                           Placeholder="Selecciona una plantilla (opcional)" AnchorOrigin="Origin.BottomCenter"
+                           Disabled="@(!plantillas.Any())"
+                           HelperText="@(plantillas.Any() ? "Rellena el formulario automaticamente" : "No tienes plantillas guardadas")">
+                    @foreach (var x in plantillas)
+                    {
+                        <MudSelectItem Value="@((int?)x.Id)">@x.Nombre</MudSelectItem>
+                    }
+                </MudSelect>
+                <MudDivider Class="mt-4" />
+            }
         </CardHeaderContent>
     </MudCardHeader>
-    <MudCardContent>
+    <MudCardContent Class="pt-0">
         <MudForm @ref="formTicketNuevo">
             @* Asunto *@
-            <MudTextField Label="Asunto" @bind-Value="ticketNuevo.Asunto" Variant=" Variant.Outlined" MaxLength="100"
-                          Required>
-                Asunto</MudTextField>
+            <MudTextField Label="Asunto" @bind-Value="ticketNuevo.Asunto" Variant="Variant.Outlined" MaxLength="100"
+                          Required RequiredError="Campo Requerido.." Immediate="true" Counter="100" 
+                          Clearable="true" Placeholder="Resumen breve del problema" />
 
-                @* Descripcion *@
-                <MudTextField Label="Descripcion" @bind-Value="ticketNuevo.Descripcion" Required Variant="Variant.Outlined"
-                              Lines="2" MaxLength="250">
-                    Descripcion</MudTextField>
+            @* Descripcion *@
+            <MudTextField Label="Descripcion" @bind-Value="ticketNuevo.Descripcion" Required
+                          RequiredError="Campo Requerido.." Variant="Variant.Outlined" Lines="2" MaxLength="250" Immediate="true"
+                          Counter="250" MaxLines="6" Class="mt-3"
+                          Placeholder="Describe el problema con el mayor detalle posible" />
 
-                    @* Categoria *@
-                    <MudSelect T="int?" @bind-Value="categoriaSeleccionada" Label="Categoria" Required Class="mt-3"
-                               Disabled="@(!categorias.Any())" Variant="Variant.Outlined">
-                        @foreach (var x in categorias)
-                        {
-                            <MudSelectItem Value="@((int?)x.Id)">@x.Nombre</MudSelectItem>
-                        }
-                    </MudSelect>
+            @* Categoria *@
+            <MudSelect T="int?" @bind-Value="categoriaSeleccionada" Label="Categoria" Required
+                       RequiredError="Campo Requerido.." Class="mt-3" Disabled="@(!categorias.Any())"
+                       Variant="Variant.Outlined" Clearable="true" Placeholder="Selecciona una categoria"
+                       AnchorOrigin="Origin.BottomCenter">
+                @foreach (var x in categorias)
+                {
+                    <MudSelectItem Value="@((int?)x.Id)">@x.Nombre</MudSelectItem>
+                }
+            </MudSelect>
 
-                    @* Si es ticket subido como usuario aparecera Anydesk, si es subido como un analista para si mismo aparecera
+            @* Si es ticket subido como usuario aparecera Anydesk, si es subido como un analista para si mismo aparecera
             lo demas *@
 
-                    @if (EsTicketPropio != true)
-                    {
-                        @* Descripcion *@
-                        <MudTextField Label="Anydesk" @bind-Value="ticketNuevo.Anydesk" Variant="Variant.Outlined" MaxLength="20">
-                            Anydesk</MudTextField>
-                        }
-                    else
-                        {
-                            @* Usuario *@
-                            @* Buscar Usuarios - INTERFAZ *@
-                            <MudAutocomplete T="GetUsuario" Label="Usuario" Value="@usuarioSeleccionado"
-                                             ValueChanged="@SeleccionarUsuario" SearchFunc="BuscarUsuarios" ToStringFunc="u => u?.Nombre"
-                                             Clearable="true" ResetValueOnEmptyText="true" CoerceText="false" Class="mt-3" Variant="Variant.Outlined"
-                                             Required MaxLength="50" />
+            @if (EsTicketPropio != true)
+            {
+                @* Descripcion *@
+                <MudTextField Label="Anydesk" @bind-Value="ticketNuevo.Anydesk" Variant="Variant.Outlined" MaxLength="20"
+                              Immediate="true" Counter="20" Clearable="true" Class="mt-3" Adornment="Adornment.Start"
+                              AdornmentIcon="@Icons.Material.Filled.DesktopWindows" Placeholder="Ej. 123 456 789"
+                              HelperText="Opcional" />
+            }
+            else
+            {
+                @* Usuario *@
+                @* Buscar Usuarios - INTERFAZ *@
+                <MudAutocomplete T="GetUsuario" Label="Usuario" Value="@usuarioSeleccionado"
+                                 ValueChanged="@SeleccionarUsuario" SearchFunc="BuscarUsuarios" ToStringFunc="u => u?.Nombre"
+                                 Clearable="true" ResetValueOnEmptyText="true" CoerceText="false" Class="mt-3" Variant="Variant.Outlined"
+                                 Required RequiredError="Campo Requerido.." MaxLength="50" DebounceInterval="250" OpenOnFocus="true"
+                                 SelectValueOnTab="true" ShowProgressIndicator="true" Placeholder="Escribe para buscar un usuario"
+                                 Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search">
+                    <NoItemsTemplate>
+                        <MudText Align="Align.Center" Class="px-4 py-1">Sin resultados</MudText>
+                    </NoItemsTemplate>
+                </MudAutocomplete>
 
-                            @* Tiempo de Inicio *@
-                            <MudStack Row Class="mt-3">
-                                <Componente_DateTime label="Tiempo de Inicio" @bind-fecha_tiempo="@ticketNuevo.FechaTomado" />
-                                @* Tiempo de Cierre *@
-                                <Componente_DateTime label="Tiempo de Cierre" @bind-fecha_tiempo="@ticketNuevo.FechaCierreParcial" />
-                            </MudStack>
-                            <MudAlert Severity="Severity.Info" Class="mt-3">Nota: *El tiempo de Inicio y Cierre Se Tomaran Como El
-                                Tiempo En Que El
-                                Tecnico
-                                Inicio y Termino Su Proceso de Trabajo. El Tiempo de Registro Y Cierre por El Usuario Se Registraran 5
-                                Minutos Antes y Despues de Este Rango de Tiempo*
-                            </MudAlert>
+                @* Tiempo de Inicio *@
+                <MudGrid Spacing="2" Class="mt-1">
+                    <MudItem xs="12" sm="6">
+                        <Componente_DateTime label="Tiempo de Inicio" @bind-fecha_tiempo="@ticketNuevo.FechaTomado" />
+                    </MudItem>
+                    <MudItem xs="12" sm="6">
+                        <Componente_DateTime label="Tiempo de Cierre"
+                                             @bind-fecha_tiempo="@ticketNuevo.FechaCierreParcial" />
+                    </MudItem>
+                </MudGrid>
+                <MudAlert Severity="Severity.Info" Class="mt-3" Dense="true">Nota: *El tiempo de Asignacion y Cierre Parcial
+                    Se Tomaran
+                    de Estos Inputs. El Tiempo de Registro Y Cierre por El Usuario Se Registraran 5
+                    Minutos Antes y Despues de Este Rango de Tiempo*
+                </MudAlert>
 
-                            @* Solucion *@
-                            <MudTextField Label="Solucion" @bind-Value="ticketNuevo.Solucion" Variant="Variant.Outlined" MaxLength="150"
-                                          Lines="2" Class="mt-3" Required />
+                @* Solucion *@
+                <MudTextField Label="Solucion" @bind-Value="ticketNuevo.Solucion" Variant="Variant.Outlined" MaxLength="150"
+                              Lines="2" Class="mt-3" Required RequiredError="Campo Requerido.." Immediate="true" Counter="150"
+                              MaxLines="6" Placeholder="Que se hizo para resolver el problema" />
 
-                            @* Razon *@
-                            <MudTextField Label="Razon de Registro" @bind-Value="ticketNuevo.RegistroPropio_Razon"
-                                          Variant="Variant.Outlined" MaxLength="100" Lines="2" Class="mt-3" Required />
+                @* Razon *@
+                <MudTextField Label="Razon de Registro" @bind-Value="ticketNuevo.RegistroPropio_Razon"
+                              Variant="Variant.Outlined" MaxLength="100" Lines="2" Class="mt-3" Required
+                              RequiredError="Campo Requerido.." Immediate="true" Counter="100" MaxLines="6"
+                              Placeholder="Por que se registra este ticket de forma propia" />
 
-                            @* Asignado a Proveedor *@
-                            <MudStack Row Class="mt-3 border border-solid mud-border-info pa-4 ">
-                                <MudStack Class="flex-2">
-                                    <MudText Typo="Typo.caption">Fue Asignado a Proveedor?</MudText>
-                                    <MudRadioGroup T="bool" Value="@ticketNuevo.AsignadoAProvedor"
-                                                   ValueChanged="AsignadoAProveedor_Cambio">
-                                        <MudRadio Value="false">No</MudRadio>
-                                        <MudRadio Value="true">Si</MudRadio>
-                                    </MudRadioGroup>
-                                </MudStack>
+                @* Asignado a Proveedor *@
+                <MudGrid Spacing="2" Class="mt-3 border border-solid mud-border-info pa-2 mx-0" Style="width:100%">
+                    <MudItem xs="12" md="5">
+                        <MudText Typo="Typo.caption">Fue Asignado a Proveedor?</MudText>
+                        <MudRadioGroup T="bool" Value="@ticketNuevo.AsignadoAProvedor"
+                                       ValueChanged="AsignadoAProveedor_Cambio">
+                            <MudRadio Value="false" Color="Color.Info">No</MudRadio>
+                            <MudRadio Value="true" Color="Color.Info">Si</MudRadio>
+                        </MudRadioGroup>
+                    </MudItem>
 
-                                @* Buscar Proveedores - INTERFAZ *@
+                    <MudItem xs="12" md="7">
+                        <MudAutocomplete T="GetProveedor" Label="Provedor" Value="@proveedorSeleccionado"
+                                         ValueChanged="@SeleccionarProveedor" SearchFunc="@BuscarProveedores"
+                                         ToStringFunc="u => u?.Nombre" Clearable="true" ResetValueOnEmptyText="true" CoerceText="false"
+                                         Variant="Variant.Outlined" Disabled="@(!ticketNuevo.AsignadoAProvedor)"
+                                         Required="@(ticketNuevo.AsignadoAProvedor)" RequiredError="Campo Requerido.." MaxLength="50"
+                                         DebounceInterval="250" OpenOnFocus="true" SelectValueOnTab="true" ShowProgressIndicator="true"
+                                         Placeholder="Escribe para buscar un proveedor" Adornment="Adornment.Start"
+                                         AdornmentIcon="@Icons.Material.Filled.Search">
+                            <NoItemsTemplate>
+                                <MudText Align="Align.Center" Class="px-4 py-1">Sin resultados</MudText>
+                            </NoItemsTemplate>
+                        </MudAutocomplete>
+                    </MudItem>
+                </MudGrid>
+            }
 
-                                <MudStack Class="flex-1">
-                                    <MudAutocomplete T="GetProveedor" Label="Provedor" Value="@proveedorSeleccionado"
-                                                     ValueChanged="@SeleccionarProveedor" SearchFunc="@BuscarProveedores"
-                                                     ToStringFunc="u => u?.Nombre" Clearable="true" ResetValueOnEmptyText="true" CoerceText="false"
-                                                     Variant="Variant.Outlined" Disabled="@(!ticketNuevo.AsignadoAProvedor)"
-                                                     Required="@(ticketNuevo.AsignadoAProvedor)" Class="mt-6" MaxLength="50" />
-                                </MudStack>
-                            </MudStack>
-                        }
+        </MudForm>
+    </MudCardContent>
+    <MudCardActions>
+        <MudButton Variant="Variant.Filled" Color="Color.Info" OnClick="CrearTicket" FullWidth="true"
+                   Disabled="@enviando" ButtonType="ButtonType.Button"
+                   EndIcon="@(enviando ? null : Icons.Material.Filled.Send)">
+            @if (enviando)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="me-2" />
+                <span>Enviando...</span>
+            }
+            else
+            {
+                <span>Enviar</span>
+            }
+        </MudButton>
+    </MudCardActions>
+</MudCard>
 
-                    </MudForm>
+<MudSpacer />
+
+<MudGrid Spacing="3" Class="pt-5">
+    <MudItem xs="12" sm="6" md="3">
+        <MudLink Href="/Tickets?estatus=1" Class="d-block h-100 hover-grow cursor-pointer no-outline"
+                 Underline="Underline.None" title="Ver mis tickets abiertos" aria-label="Ver mis tickets abiertos">
+            <MudCard Elevation="4" Outlined="true" Class="h-100">
+                <MudCardHeader>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h6">Abiertos</MudText>
+                    </CardHeaderContent>
+                </MudCardHeader>
+                <MudCardContent>
+                    <MudStack Row AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                        <MudText Typo="Typo.h4">@ticketsAbiertos</MudText>
+                        <MudIcon Icon="@Icons.Material.Filled.Announcement" Size="Size.Large" Title="Abiertos" />
+                    </MudStack>
                 </MudCardContent>
-                <MudCardActions>
-                    <MudButton Variant="Variant.Filled" Color="Color.Info" OnClick="CrearTicket" FullWidth="true"
-                               EndIcon="@Icons.Material.Filled.Send">Enviar</MudButton>
-                </MudCardActions>
             </MudCard>
+        </MudLink>
+    </MudItem>
+    
+    <MudItem xs="12" sm="6" md="3">
+        <MudLink Href="/Tickets?estatus=2" Class="flex-1 hover-grow cursor-pointer no-outline"
+                 Underline="Underline.None" title="Ver mis tickets en proceso" aria-label="Ver mis tickets en proceso">
+            <MudCard Elevation="4" Outlined="true">
+                <MudCardHeader>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h6">En Proceso</MudText>
+                    </CardHeaderContent>
+                </MudCardHeader>
+                <MudCardContent>
+                    <MudStack Row AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                        <MudText Typo="Typo.h4">@ticketsEnProceso</MudText>
+                        <MudIcon Icon="@Icons.Material.Filled.Build" Size="Size.Large" Title="En proceso"></MudIcon>
+                    </MudStack>
+                </MudCardContent>
+            </MudCard>
+        </MudLink>
+    </MudItem>
 
-            <MudSpacer />
-            <MudStack Row Class="pt-5 d-flex">
-                <MudLink Href="/Tickets?estatus=1" Class="flex-1 hover-grow cursor-pointer no-outline">
-                    <MudCard Elevation="4" Outlined="true">
-                        <MudCardHeader>
-                            <CardHeaderContent>
-                                <MudText Typo="Typo.h6">Abiertos</MudText>
-                            </CardHeaderContent>
-                        </MudCardHeader>
-                        <MudCardContent>
-                            <MudStack Row>
-                                <MudText Typo="Typo.h4">@ticketsAbiertos</MudText>
-                                <MudIcon Icon="@Icons.Material.Filled.Announcement" Size="Size.Large"></MudIcon>
-                            </MudStack>
-                        </MudCardContent>
-                    </MudCard>
-                </MudLink>
+    <MudItem xs="12" sm="6" md="3">
+        <MudLink Href="/Tickets?estatus=3" Class="flex-1 hover-grow cursor-pointer no-outline"
+                 Underline="Underline.None" title="Ver mis tickets cerrados por tecnico"
+                 aria-label="Ver mis tickets cerrados por tecnico">
+            <MudCard Elevation="4" Outlined="true">
+                <MudCardHeader>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h6">Cerrados Por Tecnico</MudText>
+                    </CardHeaderContent>
+                </MudCardHeader>
+                <MudCardContent>
+                    <MudStack Row AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                        <MudText Typo="Typo.h4">@ticketsCerradosParcial</MudText>
+                        <MudIcon Icon="@Icons.Material.Filled.AssignmentInd" Size="Size.Large"
+                                 Title="Cerrados por tecnico">
+                        </MudIcon>
+                    </MudStack>
+                </MudCardContent>
+            </MudCard>
+        </MudLink>
+    </MudItem>
+    
+    <MudItem xs="12" sm="6" md="3">
+        <MudLink Href="/Tickets?estatus=4" Class="flex-1 hover-grow cursor-pointer no-outline"
+                 Underline="Underline.None" title="Ver mis tickets cerrados" aria-label="Ver mis tickets cerrados">
+            <MudCard Elevation="4" Outlined="true">
+                <MudCardHeader>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h6">Cerrados</MudText>
+                    </CardHeaderContent>
+                </MudCardHeader>
+                <MudCardContent>
+                    <MudStack Row AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                        <MudText Typo="Typo.h4">@ticketsCerrados</MudText>
+                        <MudIcon Icon="@Icons.Material.Filled.Check" Size="Size.Large" Title="Cerrados"></MudIcon>
+                    </MudStack>
+                </MudCardContent>
+            </MudCard>
+        </MudLink>
+    </MudItem>
 
-                <MudLink Href="/Tickets?estatus=2" Class="flex-1 hover-grow cursor-pointer no-outline">
-                    <MudCard Elevation="4" Outlined="true">
-                        <MudCardHeader>
-                            <CardHeaderContent>
-                                <MudText Typo="Typo.h6">En Proceso</MudText>
-                            </CardHeaderContent>
-                        </MudCardHeader>
-                        <MudCardContent>
-                            <MudStack Row>
-                                <MudText Typo="Typo.h4">@ticketsEnProceso</MudText>
-                                <MudIcon Icon="@Icons.Material.Filled.Build" Size="Size.Large"></MudIcon>
-                            </MudStack>
-                        </MudCardContent>
-                    </MudCard>
-                </MudLink>
-
-                <MudLink Href="/Tickets?estatus=3" Class="flex-1 hover-grow cursor-pointer no-outline">
-                    <MudCard Elevation="4" Outlined="true">
-                        <MudCardHeader>
-                            <CardHeaderContent>
-                                <MudText Typo="Typo.h6">Cerrados Por Tecnico</MudText>
-                            </CardHeaderContent>
-                        </MudCardHeader>
-                        <MudCardContent>
-                            <MudStack Row>
-                                <MudText Typo="Typo.h4">@ticketsCerradosParcial</MudText>
-                                <MudIcon Icon="@Icons.Material.Filled.AssignmentInd" Size="Size.Large"></MudIcon>
-                            </MudStack>
-                        </MudCardContent>
-                    </MudCard>
-                </MudLink>
-
-                <MudLink Href="/Tickets?estatus=4" Class="flex-1 hover-grow cursor-pointer no-outline">
-                    <MudCard Elevation="4" Outlined="true" OnClick="@(async () => await NavTickets(1))">
-                        <MudCardHeader>
-                            <CardHeaderContent>
-                                <MudText Typo="Typo.h6">Cerrados</MudText>
-                            </CardHeaderContent>
-                        </MudCardHeader>
-                        <MudCardContent>
-                            <MudStack Row>
-                                <MudText Typo="Typo.h4">@ticketsCerrados</MudText>
-                                <MudIcon Icon="@Icons.Material.Filled.Check" Size="Size.Large"></MudIcon>
-                            </MudStack>
-                        </MudCardContent>
-                    </MudCard>
-                </MudLink>
-            </MudStack>
+    @* Repeat the same MudItem xs="12" sm="6" md="3" wrapper for the other three cards
+       (estatus=2, 3, 4), keeping their existing content and adding Class="d-block h-100 ..."
+       to each MudLink and Class="h-100" to each MudCard. *@
+</MudGrid>
 
 @code {
 
@@ -269,12 +354,32 @@
         await formTicketNuevo.ResetAsync();
     }
 
+    private int? plantillaId = null;
+    private async Task UsarPlantilla(int? value)
+    {
+        plantillaId = value;
+        plantilla = plantillas.FirstOrDefault(p => p.Id == plantillaId) ?? new();
+        ticketNuevo.AsignadoAProvedor = plantilla.AsignadoAProvedor;
+        ticketNuevo.Asunto = plantilla.Asunto ?? ticketNuevo.Asunto;
+        ticketNuevo.Descripcion = plantilla.Descripcion ?? ticketNuevo.Descripcion;
+        categoriaSeleccionada = plantilla.FkCategoria != null ? (int)plantilla.FkCategoria : categoriaSeleccionada;
+        ticketNuevo.FkProvedor = plantilla.FkProvedor;
+        ticketNuevo.RegistroPropio_Razon = plantilla.RegistroPropio_Razon;
+        ticketNuevo.Solucion = plantilla.Solucion;
+    }
+    
+    private async Task LimpiarPlantilla()
+    {
+        ticketNuevo = new();
+        categoriaSeleccionada = null;
+    }
+
     @* Buscar Usuarios - CODIGO *@
     private async Task<IEnumerable<GetUsuario>> BuscarUsuarios(string busqueda, CancellationToken token)
     {
         try
         {
-            var respuesta = usuarios.Where(x => x.Nombre.Contains(busqueda, StringComparison.OrdinalIgnoreCase));
+            var respuesta = usuarios.Where(x => x.Nombre.Contains(busqueda ?? string.Empty, StringComparison.OrdinalIgnoreCase));
             return respuesta;
         }
         catch (Exception ex)
@@ -302,7 +407,7 @@
     {
         try
         {
-            var respuesta = proveedores.Where(x => x.Nombre.Contains(busqueda, StringComparison.OrdinalIgnoreCase));
+            var respuesta = proveedores.Where(x => x.Nombre.Contains(busqueda ?? string.Empty, StringComparison.OrdinalIgnoreCase));
             return respuesta;
         }
         catch (Exception ex)
@@ -334,52 +439,63 @@
 
     private async Task CrearTicket()
     {
-        await formTicketNuevo.ValidateAsync();
-        if (formTicketNuevo.IsValid)
+        if (enviando)
+            return;
+
+        enviando = true;
+        try
         {
-            if (!EsTicketPropio)
+            await formTicketNuevo.ValidateAsync();
+            if (formTicketNuevo.IsValid)
             {
-                ticketNuevo.FechaInicio = DateTime.Now;
-                ticketNuevo.FkEstatus = 1;
-                ticketNuevo.FkUnidad = usuario!.FkUnidad;
-                ticketNuevo.FkUsuario = usuario!.Id;
+                if (!EsTicketPropio)
+                {
+                    ticketNuevo.FechaInicio = DateTime.Now;
+                    ticketNuevo.FkEstatus = 1;
+                    ticketNuevo.FkUnidad = UserData.Unidad;
+                    ticketNuevo.FkUsuario = UserData.Id;
 
-                nuevoComentario.Contenido = $"Ticket fue registrado: {ticketNuevo.Descripcion}";
-                nuevoComentario.FkUsuario = usuario.Id;
+                    nuevoComentario.Contenido = $"Ticket fue registrado: {ticketNuevo.Descripcion}";
+                    nuevoComentario.FkUsuario = UserData.Id;
+                }
+
+                @* Si es ticket propio el estatus automaticamente sera registrador como cerrado *@
+                else
+                {
+                    ticketNuevo.FkEstatus = 4;
+                    ticketNuevo.FkAnalista = UserData.Id;
+                    ticketNuevo.RegistradoPorAnalista = true;
+                    if (ticketNuevo.FechaTomado == null)
+                        return;
+
+                    @* Se calculan los tiempo de registro y cierre por el usuario removiendo y añadiendo 5 minutos *@
+                    var fechaInicioCalc = (DateTime)(ticketNuevo.FechaTomado - TimeSpan.FromMinutes(5));
+                    ticketNuevo.FechaInicio = fechaInicioCalc;
+
+                    var fechaCierreCalc = ticketNuevo.FechaCierreParcial + TimeSpan.FromMinutes(5);
+                    ticketNuevo.FechaCierre = fechaCierreCalc;
+
+                    nuevoComentario.Contenido = $"Ticket fue Registrado por Analista: {ticketNuevo.Descripcion}";
+                    nuevoComentario.FkUsuario = UserData.Id;
+                }
+
+                ticketNuevo.FkCategoria = (int)categoriaSeleccionada!;
+                var respuesta = await _ServicioTickets.Createticket(ticketNuevo, nuevoComentario);
+
+                await GetTickets();
+                ticketNuevo = new();
+                await formTicketNuevo.ResetAsync();
+                categoriaSeleccionada = categorias.FirstOrDefault()!.Id;
+
+                _Snackbar.Add(respuesta.mensaje, respuesta.exitoso ? Severity.Success : Severity.Error);
             }
-
-            @* Si es ticket propio el estatus automaticamente sera registrador como cerrado *@
-            else
-            {
-                ticketNuevo.FkEstatus = 4;
-                ticketNuevo.FkAnalista = usuario!.Id;
-                ticketNuevo.RegistradoPorAnalista = true;
-                if (ticketNuevo.FechaTomado == null)
-                    return;
-
-                @* Se calculan los tiempo de registro y cierre por el usuario removiendo y añadiendo 5 minutos *@
-                var fechaInicioCalc = (DateTime)(ticketNuevo.FechaTomado - TimeSpan.FromMinutes(5));
-                ticketNuevo.FechaInicio = fechaInicioCalc;
-
-                var fechaCierreCalc = ticketNuevo.FechaCierreParcial + TimeSpan.FromMinutes(5);
-                ticketNuevo.FechaCierre = fechaCierreCalc;
-
-                nuevoComentario.Contenido = $"Ticket fue Registrado por Analista: {ticketNuevo.Descripcion}";
-                nuevoComentario.FkUsuario = usuario.Id;
-            }
-
-            ticketNuevo.FkCategoria = (int)categoriaSeleccionada!;
-            var respuesta = await _ServicioTickets.Createticket(ticketNuevo, nuevoComentario);
-
-            await GetTickets();
-            ticketNuevo = new();
-            await formTicketNuevo.ResetAsync();
-            categoriaSeleccionada = categorias.FirstOrDefault()!.Id;
-
-            _Snackbar.Add(respuesta.mensaje, Severity.Success);
+            _Log.LogError("Form no es valido");
+            Console.WriteLine("Form no es valido");
         }
-        _Log.LogError("Form is not valid");
-        Console.WriteLine("***********Form is not valid");
+        finally
+        {
+            enviando = false;
+        }
     }
 
     private async Task NavTickets(int estatus)

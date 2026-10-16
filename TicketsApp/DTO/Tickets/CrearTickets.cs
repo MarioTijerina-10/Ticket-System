@@ -1,5 +1,3 @@
-using System;
-
 namespace TicketsApp.DTO;
 
 public class CrearTickets

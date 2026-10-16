@@ -11,10 +11,11 @@ using System;
 using System.Reflection;
 
 [assembly: Microsoft.AspNetCore.Identity.UI.UIFrameworkAttribute("Bootstrap5")]
+[assembly: Microsoft.Extensions.Configuration.UserSecrets.UserSecretsIdAttribute("abcce45f-3079-479a-89af-b87b7991a68f")]
 [assembly: System.Reflection.AssemblyCompanyAttribute("TicketsApp")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+ea521509569e5df4a212430c84bfccbf3172a782")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+caf4ff4342910495c29dd15659d7dfc3fd31af05")]
 [assembly: System.Reflection.AssemblyProductAttribute("TicketsApp")]
 [assembly: System.Reflection.AssemblyTitleAttribute("TicketsApp")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

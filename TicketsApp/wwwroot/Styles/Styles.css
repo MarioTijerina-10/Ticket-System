@@ -19,10 +19,6 @@
   color: var(--mud-palette-rgb(178, 176, 191));
 }
 
-.carta-analista{
-  width: 20% !important;
-}
-
 .carta-analista-encabezado{
   background-color: #111149;
 }
@@ -70,4 +66,56 @@
     font-size: clamp(0.9rem, 2vw, 1.25rem);
     white-space: nowrap;
     overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Charts scale with their container using the SVG viewBox */
+.chart-box .mud-chart svg {
+    width: 100%;
+    height: auto;
+}
+
+/* Pie chart: don't let it get huge on wide screens */
+.chart-pie {
+    max-width: 420px;
+    margin-inline: auto;
+}
+
+/* Line chart: scrolls sideways on phones instead of cramming labels */
+.chart-scroll { overflow-x: auto; }
+.chart-scroll .chart-inner { min-width: 640px; }
+
+/* Summary cards: sticky only on larger screens (on a phone they'd eat the viewport) */
+.sticky-resumen {
+    position: sticky;
+    top: 64px;
+    z-index: 1100;
+    background-color: var(--mud-palette-background);
+}
+@media (max-width: 959px) {
+    .sticky-resumen { position: static; }
+}
+
+/* Technician cards: remove any fixed width you had on this class */
+.carta-analista { width: 100%; height: 100%; }
+
+/* Smaller page title on phones */
+@media (max-width: 599px) {
+    .titulo-dashboard { font-size: 1.75rem !important; }
+}
+
+.tickets-grid-wrapper {
+    width: 100%;
+    overflow-x: auto;
+}
+
+.tickets-grid-wrapper .mud-table-cell {
+    white-space: nowrap;
+}
+
+@media (max-width: 600px) {
+    .tickets-grid-wrapper .mud-table-cell {
+        padding: 6px 8px;
+        font-size: 0.8rem;
+    }
 }

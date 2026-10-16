@@ -37,24 +37,6 @@ public class ServicioCamposEstaticos : ServicioBase<ServicioCamposEstaticos>
         return roles;
     }
 
-    public async Task<List<Unidad>> GetUnidades()
-    {
-        var Contexto = await fabrica.CreateDbContextAsync();
-        return (await cache.GetOrCreateAsync("Unidades", async entry =>
-        {
-            return await Contexto.Unidades.Where(u => u.Activo == true).ToListAsync();
-        }))!;
-    }
-
-    public async Task<List<Categoria>> GetCategorias()
-    {
-        var Contexto = await fabrica.CreateDbContextAsync();
-        return (await cache.GetOrCreateAsync("Categorias", async entry =>
-        {
-            return await Contexto.Categorias.Where(c => c.Activo == true).ToListAsync();
-        }))!;
-    }
-
     public async Task<MensajeDeRespuesta<List<Usuario>>> GetAnalistas()
     {
         var respuesta = await EjecutarServicio(async () =>

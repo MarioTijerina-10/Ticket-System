@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
 using TicketsApp.DTO;
 using TicketsApp.DTO.Comentarios;
 using TicketsApp.DTO.Tickets;
@@ -90,6 +89,23 @@ public class ServicioTickets : ServicioBase<ServicioTickets>
         "Los tickets fueron extraidos correctamente",
         "Hubo un error al extraer los tickets");
     }
+
+    public Task<MensajeDeRespuesta<List<GetTickets>>> GetTicketsByUsuario(string IdUsuario)
+    {
+        return EjecutarServicio(async () =>
+        {
+            var Contexto = await fabrica.CreateDbContextAsync();
+
+            var tickets = (await GetAll()).data ?? new();
+            var TicketsPorUsuario = tickets.Where(t => t.FkUsuario == IdUsuario).ToList();
+
+            return TicketsPorUsuario;
+        },
+        "Los tickets fueron extraidos correctamente",
+        "Hubo un error al extraer los tickets");
+    }
+
+
 
     public async Task<MensajeDeRespuesta<GetTickets>> GetOne(int id)
     {
@@ -250,13 +266,13 @@ public class ServicioTickets : ServicioBase<ServicioTickets>
                 var correoUsuario = ticket.FkUsuarioNavigation.Email;
                 if (correoUsuario != null)
                 {
-                    var html = await plantillasCorreo.TicketCerradoParcial(ticket.Id, ticket.Asunto);
-                    await cola.QueueEmailAsync(new EmailRequest
-                    {
-                        Para = correoUsuario,
-                        Asunto = ticket.Asunto,
-                        html = html
-                    });
+                    // var html = await plantillasCorreo.TicketCerradoParcial(ticket.Id, ticket.Asunto);
+                    // await cola.QueueEmailAsync(new EmailRequest
+                    // {
+                    //     Para = correoUsuario,
+                    //     Asunto = ticket.Asunto,
+                    //     html = html
+                    // });
                 }
             }
 
@@ -306,13 +322,13 @@ public class ServicioTickets : ServicioBase<ServicioTickets>
 
                     if (correoAnalista != null)
                     {
-                        var html = await plantillasCorreo.TicketCerrado(ticket.Id, ticket.Asunto);
-                        await cola.QueueEmailAsync(new EmailRequest
-                        {
-                            Para = correoAnalista,
-                            Asunto = ticket.Asunto,
-                            html = html
-                        });
+                        // var html = await plantillasCorreo.TicketCerrado(ticket.Id, ticket.Asunto);
+                        // await cola.QueueEmailAsync(new EmailRequest
+                        // {
+                        //     Para = correoAnalista,
+                        //     Asunto = ticket.Asunto,
+                        //     html = html
+                        // });
                     }
                     break;
             }
@@ -336,7 +352,7 @@ public class ServicioTickets : ServicioBase<ServicioTickets>
                 query = query.Where(t => t.RegistradoPorAnalista == filtrado.RegistradoPorAnalista.Value);
 
             if (!string.IsNullOrEmpty(filtrado.NomUsuario))
-                query = query.Where(t => t.NomUsuario.Contains(filtrado.NomUsuario));
+                query = query.Where(t => t.NomUsuario?.Contains(filtrado.NomUsuario) == true);
 
             if (filtrado.FkAnalista != null)
                 query = query.Where(t => t.FkAnalista == filtrado.FkAnalista);
